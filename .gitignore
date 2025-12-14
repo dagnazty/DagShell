@@ -1,0 +1,31 @@
+# Compiled binaries
+orbic_fw_c/orbic_app
+*.exe
+*.o
+*.a
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Large tool archives
+*.zip
+gcc/
+node/
+platform-tools/
+rayhunter/
+rustup-init.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
