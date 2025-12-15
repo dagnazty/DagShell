@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="DagShell - Custom firmware for the Orbic RCL400 hotspot with hacking tools and privacy features.">
+    <meta name="keywords" content="DagShell, Orbic, RCL400, custom firmware, hotspot, hacking tools, TTL fix">
+    <title>DagShell - Orbic RCL400 Custom Firmware</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="scanlines"></div>
+    
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <pre class="ascii-logo">
+ ____             ____  _          _ _ 
+|  _ \  __ _  __ / ___|| |__   ___| | |
+| | | |/ _` |/ _\___ \| '_ \ / _ \ | |
+| |_| | (_| | (_| |__) | | | |  __/ | |
+|____/ \__,_|\__, |___/|_| |_|\___|_|_|
+             |___/                     
+            </pre>
+            <p class="tagline">[ Orbic RCL400 Custom Firmware ]</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <a href="index.html" class="active">[HOME]</a>
+            <a href="installation.html">[INSTALLATION]</a>
+            <a href="features.html">[FEATURES]</a>
+            <a href="faq.html">[FAQ]</a>
+        </nav>
+
+        <!-- Hero Section -->
+        <div class="card hero">
+            <h1 class="glow">🔓 Unlock Your Hotspot</h1>
+            <p>A terminal-styled custom firmware for the Orbic RCL400 with hacking tools, privacy features, and full AT command access.</p>
+            <div>
+                <a href="installation.html" class="btn btn-primary">> GET STARTED</a>
+                <a href="https://github.com/dagnazty/DagShell" class="btn" target="_blank">> VIEW SOURCE</a>
+            </div>
+        </div>
+
+        <!-- Features Overview -->
+        <div class="card">
+            <h2>📡 What is DagShell?</h2>
+            <p>DagShell is a custom web-based control panel that runs on your rooted Orbic RCL400 LTE hotspot. It provides tools and features not available in the stock firmware.</p>
+            
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">🏠</div>
+                    <h3>Dashboard</h3>
+                    <p>System uptime monitoring and direct AT command interface for modem control.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Network Tools</h3>
+                    <p>View interfaces, connected clients, active connections, and set custom TTL values.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Privacy</h3>
+                    <p>MAC address spoofing and DNS-level ad blocking to protect your identity.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📱</div>
+                    <h3>SMS</h3>
+                    <p>Send text messages directly through the hotspot's modem via AT commands.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📡</div>
+                    <h3>IMSI Detector</h3>
+                    <p>Monitor cell tower information to detect potential IMSI catchers.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Firewall</h3>
+                    <p>Block/unblock IPs and manage iptables rules through a simple interface.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screenshot -->
+        <div class="card">
+            <h2>🖥️ Preview</h2>
+            <p>The firmware features a terminal/hacker aesthetic with ASCII art, scanline effects, and glowing text.</p>
+            <img src="assets/screenshot-tools.png" alt="DagShell Tools Page Screenshot" class="screenshot">
+        </div>
+
+        <!-- Quick Start -->
+        <div class="card">
+            <h2>⚡ Quick Start</h2>
+            <div class="steps">
+                <div class="step">
+                    <h3>Get Root Access</h3>
+                    <p>Your Orbic RCL400 must have root access via an exploit. This unlocks the diagnostic port (24).</p>
+                </div>
+                <div class="step">
+                    <h3>Build the Firmware</h3>
+                    <pre><code>cd orbic_fw_c
+.\build.ps1</code></pre>
+                </div>
+                <div class="step">
+                    <h3>Deploy to Device</h3>
+                    <pre><code>python deploy_base64.py</code></pre>
+                </div>
+                <div class="step">
+                    <h3>Access DagShell</h3>
+                    <p>Open your browser to: <a href="http://192.168.1.1:8081/" target="_blank">http://192.168.1.1:8081/</a></p>
+                </div>
+            </div>
+            <p style="text-align:center; margin-top:20px;">
+                <a href="installation.html" class="btn">> Full Installation Guide</a>
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>DagShell &copy; 2024 | Created by <a href="https://github.com/dagnazty" target="_blank">Daggy</a></p>
+            <p>Built with ❤️ and <code>gcc</code> | <a href="https://github.com/dagnazty/DagShell" target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>

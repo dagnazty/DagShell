@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Step-by-step installation guide for DagShell custom firmware on the Orbic RCL400.">
+    <title>Installation - DagShell</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="scanlines"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <pre class="ascii-logo">
+ ____             ____  _          _ _ 
+|  _ \  __ _  __ / ___|| |__   ___| | |
+| | | |/ _` |/ _\___ \| '_ \ / _ \ | |
+| |_| | (_| | (_| |__) | | | |  __/ | |
+|____/ \__,_|\__, |___/|_| |_|\___|_|_|
+             |___/                     
+            </pre>
+            <p class="tagline">[ Orbic RCL400 Custom Firmware ]</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <a href="index.html">[HOME]</a>
+            <a href="installation.html" class="active">[INSTALLATION]</a>
+            <a href="features.html">[FEATURES]</a>
+            <a href="faq.html">[FAQ]</a>
+        </nav>
+
+        <!-- Requirements -->
+        <div class="card">
+            <h1>📦 Installation Guide</h1>
+
+            <h2>Requirements</h2>
+
+            <div class="alert alert-warning">
+                ⚠️ <strong>Root access required!</strong> Your Orbic RCL400 must already have root access via an exploit
+                before installing DagShell.
+            </div>
+
+            <h3>Hardware</h3>
+            <ul>
+                <li>Orbic RCL400 LTE Hotspot (with root access)</li>
+                <li>Computer with USB connection to the hotspot (or WiFi)</li>
+            </ul>
+
+            <h3>Software</h3>
+            <ul>
+                <li><strong>ARM Cross-Compiler</strong> - <code>arm-none-linux-gnueabihf-gcc</code> (from ARM GNU
+                    Toolchain)</li>
+                <li><strong>Python 3</strong> - For running deployment scripts</li>
+                <li><strong>PowerShell</strong> - For Windows build script</li>
+            </ul>
+        </div>
+
+        <!-- Build -->
+        <div class="card">
+            <h2>🔨 Building from Source</h2>
+
+            <div class="steps">
+                <div class="step">
+                    <h3>Clone the Repository</h3>
+                    <pre><code>git clone https://github.com/dagnazty/DagShell.git
+cd DagShell</code></pre>
+                </div>
+
+                <div class="step">
+                    <h3>Install ARM Toolchain</h3>
+                    <p>Download the ARM GNU Toolchain from <a
+                            href="https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads" target="_blank">ARM
+                            Developer</a>.</p>
+                    <p>Make sure <code>arm-none-linux-gnueabihf-gcc</code> is in your PATH, or edit the path in
+                        <code>build.ps1</code>.</p>
+                </div>
+
+                <div class="step">
+                    <h3>Build the Firmware</h3>
+                    <pre><code>cd orbic_fw_c
+.\build.ps1</code></pre>
+                    <p>This produces <code>orbic_app</code> - a statically-linked ARM binary (~200KB).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deploy -->
+        <div class="card">
+            <h2>🚀 Deployment</h2>
+            <p>There are two methods to deploy DagShell to your device:</p>
+
+            <h3>Method 1: Base64 Transfer (Recommended)</h3>
+            <p>This method encodes the binary to base64 and sends it in chunks via the diagnostic port.</p>
+
+            <div class="steps">
+                <div class="step">
+                    <h3>Connect to Hotspot WiFi</h3>
+                    <p>Connect your computer to the Orbic's WiFi network.</p>
+                </div>
+
+                <div class="step">
+                    <h3>Edit Script Paths</h3>
+                    <p>Open <code>deploy_base64.py</code> and update <code>FIRMWARE_DIR</code> to point to your local
+                        build.</p>
+                </div>
+
+                <div class="step">
+                    <h3>Run Deploy Script</h3>
+                    <pre><code>python deploy_base64.py</code></pre>
+                    <p>The script will:</p>
+                    <ul>
+                        <li>Kill any existing DagShell process</li>
+                        <li>Transfer the binary in chunks</li>
+                        <li>Decode and make executable</li>
+                        <li>Start the HTTP server</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Method 2: Network Transfer</h3>
+            <p>This method hosts the binary on a local HTTP server and downloads it via wget.</p>
+
+            <div class="steps">
+                <div class="step">
+                    <h3>Configure</h3>
+                    <p>Edit <code>deploy_net.py</code> and set <code>HOST</code> to your PC's IP on the RNDIS interface.
+                    </p>
+                </div>
+
+                <div class="step">
+                    <h3>Run Deploy Script</h3>
+                    <pre><code>python deploy_net.py</code></pre>
+                    <p>This starts a local HTTP server and instructs the device to download the firmware.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Access -->
+        <div class="card">
+            <h2>🌐 Accessing DagShell</h2>
+
+            <p>Once deployed and running, access DagShell by opening your browser to:</p>
+
+            <pre><code>http://192.168.1.1:8081/</code></pre>
+
+            <div class="alert alert-info">
+                💡 <strong>Tip:</strong> The stock Orbic web interface is still available at
+                <code>http://192.168.1.1/</code> (port 80).
+            </div>
+
+            <h3>Default Pages</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>URL</th>
+                        <th>Page</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>/</code></td>
+                        <td>Dashboard (Home)</td>
+                    </tr>
+                    <tr>
+                        <td><code>/?page=net</code></td>
+                        <td>Network Analysis</td>
+                    </tr>
+                    <tr>
+                        <td><code>/?page=privacy</code></td>
+                        <td>Privacy Tools</td>
+                    </tr>
+                    <tr>
+                        <td><code>/?page=sms</code></td>
+                        <td>SMS Manager</td>
+                    </tr>
+                    <tr>
+                        <td><code>/?page=tools</code></td>
+                        <td>Hacking Tools</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Troubleshooting -->
+        <div class="card">
+            <h2>🔧 Troubleshooting</h2>
+
+            <h3>Connection Refused on Port 24</h3>
+            <p>The diagnostic port may not be open. Ensure your root exploit properly exposes port 24.</p>
+
+            <h3>Binary Not Executing</h3>
+            <p>Make sure the binary was compiled statically for ARM. Check with <code>file orbic_app</code> - it should
+                show ARM architecture.</p>
+
+            <h3>"Modem Port Busy" Errors</h3>
+            <p>Another process may be using <code>/dev/smd8</code>. The firmware will retry automatically, but if
+                persistent, reboot the device.</p>
+
+            <h3>Page Not Loading</h3>
+            <p>Verify DagShell is running by connecting to port 24 and running <code>ps | grep orbic</code>.</p>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>DagShell &copy; 2024 | Created by <a href="https://github.com/dagnazty" target="_blank">Daggy</a></p>
+            <p>Built with ❤️ and <code>gcc</code> | <a href="https://github.com/dagnazty/DagShell"
+                    target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+
+</html>

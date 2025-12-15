@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Frequently asked questions about DagShell firmware for the Orbic RCL400.">
+    <title>FAQ - DagShell</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="scanlines"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <pre class="ascii-logo">
+ ____             ____  _          _ _ 
+|  _ \  __ _  __ / ___|| |__   ___| | |
+| | | |/ _` |/ _\___ \| '_ \ / _ \ | |
+| |_| | (_| | (_| |__) | | | |  __/ | |
+|____/ \__,_|\__, |___/|_| |_|\___|_|_|
+             |___/                     
+            </pre>
+            <p class="tagline">[ Orbic RCL400 Custom Firmware ]</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <a href="index.html">[HOME]</a>
+            <a href="installation.html">[INSTALLATION]</a>
+            <a href="features.html">[FEATURES]</a>
+            <a href="faq.html" class="active">[FAQ]</a>
+        </nav>
+
+        <!-- FAQ -->
+        <div class="card">
+            <h1>❓ Frequently Asked Questions</h1>
+
+            <!-- General -->
+            <h2>General</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>What is DagShell?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>DagShell is a custom firmware/control panel for the Orbic RCL400 LTE hotspot. It provides a
+                        web-based interface with hacking tools, privacy features, and direct modem access that aren't
+                        available in the stock firmware.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>Is DagShell free?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>Yes! DagShell is open source software released under the MIT License. You can view, modify, and
+                        distribute the source code freely.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>Will this brick my device?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>DagShell runs entirely from RAM (/tmp) and doesn't modify the device's permanent storage. A
+                        simple reboot will remove it completely. However, some features like TTL modification and
+                        iptables rules persist until reboot.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>Is this legal?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>DagShell is intended for educational purposes and use on devices you own. Some features like TTL
+                        modification or MAC spoofing may violate your carrier's terms of service. Always comply with
+                        local laws and regulations.</p>
+                </div>
+            </div>
+
+            <!-- Requirements -->
+            <h2>Requirements</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>Do I need root access?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>Yes, DagShell requires root access on your Orbic RCL400. This is typically obtained through an
+                        exploit that exposes the diagnostic port (24). Without root, you cannot deploy or run the
+                        firmware.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>Does this work on other hotspots?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>DagShell is specifically designed for the Orbic RCL400. Other devices have different modem
+                        interfaces and may not be compatible. The modem communication specifically uses
+                        <code>/dev/smd8</code> which is Qualcomm-specific.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>What compiler do I need?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>You need an ARM cross-compiler. Specifically, <code>arm-none-linux-gnueabihf-gcc</code> from the
+                        ARM GNU Toolchain. The firmware is compiled statically to avoid library dependencies on the
+                        target device.</p>
+                </div>
+            </div>
+
+            <!-- Features -->
+            <h2>Features</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>What is TTL Fix and why would I use it?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>TTL (Time To Live) is a packet header value that decreases by 1 at each network hop. Carriers can
+                        detect tethered devices because their packets have a lower TTL than direct phone traffic.
+                        Setting TTL to 65 makes hotspot traffic appear to originate from the device itself.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>How accurate is the IMSI catcher detector?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>The IMSI catcher detector provides basic monitoring of cell tower information. It can detect
+                        obvious anomalies like unknown operators or sudden signal changes. However, sophisticated IMSI
+                        catchers that properly impersonate legitimate towers may not be detected. Consider it an
+                        awareness tool rather than a security guarantee.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>Can I read SMS messages?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>Currently, DagShell only supports sending SMS. To read received messages, use the stock Orbic
+                        portal at <code>http://192.168.1.1/common/shortmessage.html</code>.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>Will firewall rules persist after reboot?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>No, iptables rules are stored in memory and will be lost on reboot. If you need persistent rules,
+                        you would need to add them to a startup script on the device.</p>
+                </div>
+            </div>
+
+            <!-- Troubleshooting -->
+            <h2>Troubleshooting</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>I can't connect to port 24</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>Port 24 is the diagnostic/shell port that should be exposed by your root exploit. Make sure:</p>
+                    <p>1. Your exploit is running and has properly opened the port<br>
+                        2. You're connected to the hotspot's network<br>
+                        3. No firewall is blocking the connection<br>
+                        4. Try both WiFi and USB (RNDIS) connections</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>The web interface is slow or unresponsive</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>DagShell is single-threaded, so it can only handle one request at a time. If the modem is busy or
+                        slow to respond to AT commands, the page load will be delayed. Try refreshing the page or
+                        waiting for the current operation to complete.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>AT commands return "Modem Port Busy"</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>The modem port (<code>/dev/smd8</code>) can only be accessed by one process at a time. If you see
+                        this error, another process (possibly the stock firmware's modem handler) is using the port. The
+                        firmware has built-in retry logic, but if the problem persists, try rebooting the device.</p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>How do I stop DagShell?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>Connect to port 24 and run: <code>pkill -f orbic_app</code>. Alternatively, simply reboot the
+                        device - DagShell does not auto-start.</p>
+                </div>
+            </div>
+
+            <!-- Contributing -->
+            <h2>Contributing</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>How can I contribute?</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>Contributions are welcome! Check out the <a href="https://github.com/dagnazty/DagShell"
+                            target="_blank">GitHub repository</a> to submit issues, feature requests, or pull requests.
+                    </p>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <h3>I have a feature idea!</h3>
+                    <span class="faq-toggle">+</span>
+                </div>
+                <div class="faq-answer">
+                    <p>Great! Open an issue on GitHub describing your idea. Some things to keep in mind: the firmware is
+                        designed to be lightweight and run on a resource-constrained embedded device. Features that
+                        require large libraries may not be feasible.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>DagShell &copy; 2024 | Created by <a href="https://github.com/dagnazty" target="_blank">Daggy</a></p>
+            <p>Built with ❤️ and <code>gcc</code> | <a href="https://github.com/dagnazty/DagShell"
+                    target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+
+</html>

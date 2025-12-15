@@ -1,4 +1,4 @@
-$compilerPath = "d:\Scripts\orbic\gcc\arm-gnu-toolchain-13.3.rel1-mingw-w64-i686-arm-none-linux-gnueabihf\bin"
+$compilerPath = "C:\Program Files (x86)\Arm GNU Toolchain arm-none-linux-gnueabihf\14.3 rel1\bin"
 $env:PATH = "$compilerPath;" + $env:PATH
 
 # Compile statically to avoid libc dependencies on the target
