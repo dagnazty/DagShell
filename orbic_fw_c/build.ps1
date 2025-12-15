@@ -8,8 +8,8 @@ if (-not (Test-Path $gccPath)) {
     exit 1
 }
 
-# Compile statically
-& $gccPath main.c -o orbic_app -static
+# Compile statically (include all modules)
+& $gccPath main.c gps.c wifi.c -o orbic_app -static
 
 if ($?) {
     Write-Host "Build Successful: orbic_app"

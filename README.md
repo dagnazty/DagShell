@@ -94,5 +94,5 @@ MIT License - See LICENSE file.
 
 ## Credits
 
-- **Daggy** - Creator
+- **dag** - Creator
 - Built with ❤️ and `gcc`

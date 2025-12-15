@@ -114,7 +114,8 @@
 
             <h3>MAC Spoofing</h3>
             <p>Change your device's MAC address to avoid tracking. Enter a new MAC in the format
-                <code>XX:XX:XX:XX:XX:XX</code>.</p>
+                <code>XX:XX:XX:XX:XX:XX</code>.
+            </p>
             <div class="alert alert-warning">
                 ⚠️ <strong>Note:</strong> This temporarily brings the WiFi interface down, which may disconnect clients
                 briefly.
@@ -182,6 +183,56 @@
             <p>Current INPUT chain rules are displayed below the forms.</p>
         </div>
 
+        <!-- GPS -->
+        <div class="card">
+            <h2>📍 GPS Tracker</h2>
+            <p>Track your location using the device's built-in GPS.</p>
+
+            <h3>GPS Data</h3>
+            <p>Displays current latitude and longitude coordinates in real-time.</p>
+
+            <h3>GPS JSON API</h3>
+            <p>Access GPS data programmatically via:</p>
+            <pre><code>http://192.168.1.1:8081/?cmd=gps_json</code></pre>
+            <p>Returns JSON format: <code>{"lat":"...","lon":"..."}</code></p>
+        </div>
+
+        <!-- Wardrive -->
+        <div class="card">
+            <h2>📶 Wardriver</h2>
+            <p>Scan and log WiFi networks in Wigle-compatible CSV format.</p>
+
+            <h3>Single Scan</h3>
+            <p>Performs a one-time WiFi scan using <code>wlan1</code> and displays discovered networks with BSSID, SSID,
+                RSSI, and encryption type.</p>
+
+            <h3>Wardrive Loop</h3>
+            <p>Starts continuous scanning in the background, logging new networks to a timestamped CSV file in
+                <code>/data/</code>.</p>
+
+            <h3>CSV Format</h3>
+            <p>Logs are saved in Wigle-compatible format:</p>
+            <pre><code>MAC,SSID,AuthMode,FirstSeen,Channel,RSSI,Lat,Lon,Alt,Accuracy,Type</code></pre>
+
+            <div class="alert alert-info">
+                💡 <strong>Tip:</strong> Use the File Explorer to download your wardrive logs for uploading to
+                Wigle.net.
+            </div>
+        </div>
+
+        <!-- Files -->
+        <div class="card">
+            <h2>📁 File Explorer</h2>
+            <p>Browse, download, and delete files from the device's <code>/data/</code> directory.</p>
+
+            <h3>Download Files</h3>
+            <p>Click the "DL" button to download any file from the device (wardrive logs, etc.).</p>
+
+            <h3>Delete Files</h3>
+            <p>Remove files using the "Del" button. Wardrive CSV files can be deleted immediately; other files will
+                prompt for confirmation.</p>
+        </div>
+
         <!-- Technical Details -->
         <div class="card">
             <h2>⚙️ Technical Details</h2>
@@ -231,7 +282,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>DagShell &copy; 2024 | Created by <a href="https://github.com/dagnazty" target="_blank">Daggy</a></p>
+            <p>DagShell &copy; 2024 | Created by <a href="https://github.com/dagnazty" target="_blank">dag</a></p>
             <p>Built with ❤️ and <code>gcc</code> | <a href="https://github.com/dagnazty/DagShell"
                     target="_blank">GitHub</a></p>
         </footer>
