@@ -70,9 +70,9 @@
                     <span class="faq-toggle">+</span>
                 </div>
                 <div class="faq-answer">
-                    <p>DagShell runs entirely from RAM (/tmp) and doesn't modify the device's permanent storage. A
-                        simple reboot will remove it completely. However, some features like TTL modification and
-                        iptables rules persist until reboot.</p>
+                    <p>DagShell is deployed to <code>/data/orbic_app</code> and configured to auto-start on boot, so it
+                        survives reboots. The shell enabler (<code>enable_shell.py</code>) doesn't modify permanent
+                        storage - you can always reboot to get a fresh state if needed.</p>
                 </div>
             </div>
 
@@ -97,9 +97,9 @@
                     <span class="faq-toggle">+</span>
                 </div>
                 <div class="faq-answer">
-                    <p>Yes, DagShell requires root access on your Orbic RCL400. This is typically obtained through an
-                        exploit that exposes the diagnostic port (24). Without root, you cannot deploy or run the
-                        firmware.</p>
+                    <p>DagShell comes with <code>enable_shell.py</code> which exploits the Orbic's web API to open a
+                        root shell on port 24. No external exploit is required - just run the script with your admin
+                        password.</p>
                 </div>
             </div>
 
@@ -111,7 +111,8 @@
                 <div class="faq-answer">
                     <p>DagShell is specifically designed for the Orbic RCL400. Other devices have different modem
                         interfaces and may not be compatible. The modem communication specifically uses
-                        <code>/dev/smd8</code> which is Qualcomm-specific.</p>
+                        <code>/dev/smd8</code> which is Qualcomm-specific.
+                    </p>
                 </div>
             </div>
 
@@ -121,9 +122,9 @@
                     <span class="faq-toggle">+</span>
                 </div>
                 <div class="faq-answer">
-                    <p>You need an ARM cross-compiler. Specifically, <code>arm-none-linux-gnueabihf-gcc</code> from the
-                        ARM GNU Toolchain. The firmware is compiled statically to avoid library dependencies on the
-                        target device.</p>
+                    <p>The ARM cross-compiler is included in the <code>gcc/</code> folder. Just run
+                        <code>.\build.ps1</code> to compile. The firmware is compiled statically to avoid library
+                        dependencies.</p>
                 </div>
             </div>
 
@@ -186,11 +187,10 @@
                     <span class="faq-toggle">+</span>
                 </div>
                 <div class="faq-answer">
-                    <p>Port 24 is the diagnostic/shell port that should be exposed by your root exploit. Make sure:</p>
-                    <p>1. Your exploit is running and has properly opened the port<br>
-                        2. You're connected to the hotspot's network<br>
-                        3. No firewall is blocking the connection<br>
-                        4. Try both WiFi and USB (RNDIS) connections</p>
+                    <p>Run <code>python enable_shell.py YOUR_ADMIN_PASSWORD</code> first. This opens port 24.</p>
+                    <p>If the script shows "Login retcode = 102", double-check your password.</p>
+                    <p>If you see connection errors, try rebooting the Orbic and running the script immediately after.
+                    </p>
                 </div>
             </div>
 
@@ -224,8 +224,8 @@
                     <span class="faq-toggle">+</span>
                 </div>
                 <div class="faq-answer">
-                    <p>Connect to port 24 and run: <code>pkill -f orbic_app</code>. Alternatively, simply reboot the
-                        device - DagShell does not auto-start.</p>
+                    <p>Connect to port 24 and run: <code>pkill -f orbic_app</code>. To permanently disable auto-start,
+                        delete <code>/data/dagshell_autostart.sh</code>. Or just reboot to stop the current session.</p>
                 </div>
             </div>
 

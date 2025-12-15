@@ -9,17 +9,19 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).parent.absolute()
 FIRMWARE_DIR = SCRIPT_DIR / "orbic_fw_c"
 FIRMWARE_FILE = "orbic_app"
+BOOT_SCRIPT_FILE = "dagshell_boot.sh"
+
 FILESYSTEM_PATH = FIRMWARE_DIR / FIRMWARE_FILE
+BOOT_SCRIPT_PATH = SCRIPT_DIR / BOOT_SCRIPT_FILE
 
 # Persistent locations on device (survives reboot)
 REMOTE_FILE_B64 = "/data/orbic_app.b64"
 REMOTE_FILE = "/data/orbic_app"
-STARTUP_SCRIPT = "/data/dagshell_autostart.sh"
+REMOTE_BOOT_SCRIPT = "/data/dagshell_boot.sh"
 
 def send_cmd(sock, cmd, wait=0.2):
     sock.sendall(cmd.encode() + b"\n")
     time.sleep(wait)
-    # Don't read recv every time to speed up, just let it buffer
 
 def read_response(sock):
     try:
@@ -29,39 +31,73 @@ def read_response(sock):
         return ""
 
 def setup_autostart(sock):
-    """Create autostart script to run firmware on boot"""
-    print("Setting up autostart...")
+    """
+    Sets up persistent autostart by hijacking the USB composition script.
+    Target: /data/usb/boot_hsusb_composition
+    This file is executed by /etc/init.d/usb on boot for MDM9207.
+    """
+    print("Setting up persistence (USB Hijack)...")
     
-    # Create the startup script
-    send_cmd(sock, f"echo '#!/system/bin/sh' > {STARTUP_SCRIPT}")
-    send_cmd(sock, f"echo '# DagShell Autostart Script' >> {STARTUP_SCRIPT}")
-    send_cmd(sock, f"echo 'sleep 15' >> {STARTUP_SCRIPT}")  # Wait for system to stabilize
-    send_cmd(sock, f"echo '{REMOTE_FILE} &' >> {STARTUP_SCRIPT}")
-    send_cmd(sock, f"chmod +x {STARTUP_SCRIPT}")
+    # 1. Clean up old attempts (optional but good practice)
+    send_cmd(sock, "sed -i '/dagshell_boot.sh/d' /data/dnsmasq.conf", wait=0.5)
+
+    # 2. Transfer boot script (Fixed Shebang: /bin/sh)
+    print(f"Transferring {BOOT_SCRIPT_FILE}...")
+    with open(BOOT_SCRIPT_PATH, "r") as f:
+        boot_script_content = f.read()
     
-    # Try multiple autostart methods (device-specific)
-    # Method 1: Add to rc.local if it exists
-    send_cmd(sock, f"grep -q '{STARTUP_SCRIPT}' /data/rc.local 2>/dev/null || echo '{STARTUP_SCRIPT}' >> /data/rc.local")
+    # Ensure correct shebang on device
+    send_cmd(sock, f"echo '#!/bin/sh' > {REMOTE_BOOT_SCRIPT}")
+    for line in boot_script_content.splitlines():
+        if line.startswith("#!"): continue
+        safe_line = line.replace("'", "'\\''")
+        send_cmd(sock, f"echo '{safe_line}' >> {REMOTE_BOOT_SCRIPT}", wait=0.05)
     
-    # Method 2: Create init.d script if supported
-    send_cmd(sock, f"mkdir -p /data/local/init.d")
-    send_cmd(sock, f"echo '#!/system/bin/sh' > /data/local/init.d/99dagshell")
-    send_cmd(sock, f"echo '{STARTUP_SCRIPT}' >> /data/local/init.d/99dagshell")
-    send_cmd(sock, f"chmod +x /data/local/init.d/99dagshell")
+    send_cmd(sock, f"chmod +x {REMOTE_BOOT_SCRIPT}")
+
+    # 3. Hijack USB Composition
+    WRAPPER_PATH = "/data/usb/boot_hsusb_composition"
+    ORIGINAL_SCRIPT = "/sbin/usb/compositions/PRJ_SLT779_9025"
     
-    print("Autostart configured!")
+    print("Hijacking USB composition script...")
+    
+    # Create wrapper that runs our script THEN configures USB
+    # We write directly to the persistent location (overwriting symlink/file)
+    # Using 'sh' explicitly to bypass execution restrictions
+    
+    # Remove existing first (to break symlink if present)
+    send_cmd(sock, f"rm {WRAPPER_PATH}")
+    
+    send_cmd(sock, f"echo '#!/bin/sh' > {WRAPPER_PATH}")
+    send_cmd(sock, f"echo '# DagShell Wrapper' >> {WRAPPER_PATH}")
+    send_cmd(sock, f"echo 'sh {REMOTE_BOOT_SCRIPT} &' >> {WRAPPER_PATH}")
+    send_cmd(sock, f"echo '# Chainload original' >> {WRAPPER_PATH}")
+    send_cmd(sock, f"echo '{ORIGINAL_SCRIPT} \"$@\"' >> {WRAPPER_PATH}")
+    
+    send_cmd(sock, f"chmod +x {WRAPPER_PATH}")
+    
+    print("Persistence configured! (USB Hook applied)")
 
 def deploy(target_ip, target_port):
-    # 1. Read and Encode
+    print(f"Deploying DagShell firmware...")
+    
+    # Check if boot script exists locally
+    if not BOOT_SCRIPT_PATH.exists():
+        print(f"ERROR: {BOOT_SCRIPT_FILE} not found!")
+        return
+
+    # 1. Read and Encode Firmware
     print(f"Reading {FILESYSTEM_PATH}...")
-    with open(FILESYSTEM_PATH, "rb") as f:
-        data = f.read()
+    try:
+        with open(FILESYSTEM_PATH, "rb") as f:
+            data = f.read()
+    except FileNotFoundError:
+        print("Error: compiled firmware not found. Run build.ps1 first!")
+        return
     
     b64_data = base64.b64encode(data).decode('utf-8')
     print(f"Encoded size: {len(b64_data)} bytes")
-    
     chunks = [b64_data[i:i+1000] for i in range(0, len(b64_data), 1000)]
-    print(f"Chunks: {len(chunks)}")
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -70,39 +106,32 @@ def deploy(target_ip, target_port):
             print("Connected.")
             
             # Kill old process
-            print("Killing old process...")
             send_cmd(s, "pkill -f orbic_app")
             time.sleep(1)
 
-            # Clean up old files
-            send_cmd(s, f"rm -f {REMOTE_FILE} {REMOTE_FILE_B64}")
-            
             # Send chunks
-            print("Sending chunks...")
+            print("Sending firmware chunks...")
+            send_cmd(s, f"echo -n '' > {REMOTE_FILE_B64}") # Clear file
             for i, chunk in enumerate(chunks):
-                if i % 10 == 0:
-                    print(f"Sending chunk {i}/{len(chunks)}...")
-                # echo "chunk" >> file
-                send_cmd(s, f"echo -n '{chunk}' >> {REMOTE_FILE_B64}", wait=0.05)
+                if i % 50 == 0: print(f"  {i}/{len(chunks)}", end="\r")
+                send_cmd(s, f"echo -n '{chunk}' >> {REMOTE_FILE_B64}", wait=0.02)
+            print("")
             
-            print("Decoding...")
-            send_cmd(s, f"base64 -d {REMOTE_FILE_B64} > {REMOTE_FILE}", wait=1)
+            print("Decoding & Installing...")
+            send_cmd(s, f"base64 -d {REMOTE_FILE_B64} > {REMOTE_FILE}", wait=2)
+            send_cmd(s, f"chmod +x {REMOTE_FILE}")
             
-            print("Chmoding...")
-            send_cmd(s, f"chmod +x {REMOTE_FILE}", wait=0.5)
-            
-            # Setup autostart for persistence across reboots
+            # Setup autostart with the shell script
             setup_autostart(s)
             
-            print("Running...")
-            send_cmd(s, f"{REMOTE_FILE} &", wait=1)  # Run in background
-            
-            time.sleep(2)
-            print("--- OUTPUT ---")
-            print(read_response(s))
-            print("--------------")
-            print("\n✓ Firmware deployed to /data/ (persistent)")
-            print("✓ Autostart configured for boot persistence")
+            print("\n------------------------------------------------")
+            print("Deployment Complete!")
+            print(f"1. Firmware at: {REMOTE_FILE}")
+            print(f"2. Boot script at: {REMOTE_BOOT_SCRIPT}")
+            print("3. Autostart hooked in /etc/init.d/misc-daemon")
+            print("------------------------------------------------")
+            print("Running test instance...")
+            send_cmd(s, f"{REMOTE_BOOT_SCRIPT} &")
 
     except Exception as e:
         print(f"Error: {e}")

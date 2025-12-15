@@ -38,9 +38,9 @@ A terminal-styled custom firmware for the **Orbic RCL400** hotspot with hacking 
 
 ## Requirements
 
-- Orbic RCL400 hotspot with root access (via exploit)
-- ARM cross-compiler (`arm-linux-gnueabi-gcc`)
-- Python 3 for deployment scripts
+- Orbic RCL400 hotspot
+- ARM cross-compiler (included in `gcc/` folder)
+- Python 3 with `requests` module
 
 ## Building
 
@@ -53,14 +53,23 @@ This produces `orbic_app` - a statically-linked ARM binary.
 
 ## Deploying
 
-1. Connect to the hotspot's WiFi
-2. Run the deployment script:
+### Step 1: Enable Root Shell
+
+```powershell
+python enable_shell.py YOUR_ADMIN_PASSWORD
+```
+
+This exploits the Orbic web API to open a shell on port 24.
+
+### Step 2: Deploy Firmware
 
 ```powershell
 python deploy_base64.py
 ```
 
-This uploads the binary to the device via the diagnostic port (24) and executes it.
+This uploads and installs DagShell with **boot persistence**.
+
+The firmware is deployed to `/data/orbic_app` and auto-starts on reboot.
 
 ## Accessing
 

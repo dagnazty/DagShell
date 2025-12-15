@@ -78,7 +78,8 @@ cd DagShell</code></pre>
                             href="https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads" target="_blank">ARM
                             Developer</a>.</p>
                     <p>Make sure <code>arm-none-linux-gnueabihf-gcc</code> is in your PATH, or edit the path in
-                        <code>build.ps1</code>.</p>
+                        <code>build.ps1</code>.
+                    </p>
                 </div>
 
                 <div class="step">
@@ -88,133 +89,150 @@ cd DagShell</code></pre>
                     <p>This produces <code>orbic_app</code> - a statically-linked ARM binary (~200KB).</p>
                 </div>
             </div>
-        </div>
 
-        <!-- Deploy -->
-        <div class="card">
-            <h2>🚀 Deployment</h2>
-            <p>There are two methods to deploy DagShell to your device:</p>
+            <!-- Deploy -->
+            <div class="card">
+                <h2>🚀 Deployment</h2>
+                <p>Deployment requires two steps: enabling the shell, then deploying the firmware.</p>
 
-            <h3>Method 1: Base64 Transfer (Recommended)</h3>
-            <p>This method encodes the binary to base64 and sends it in chunks via the diagnostic port.</p>
+                <h3>Step 1: Enable Root Shell</h3>
+                <p>Run our custom shell enabler script to open port 24 on the device:</p>
 
-            <div class="steps">
-                <div class="step">
-                    <h3>Connect to Hotspot WiFi</h3>
-                    <p>Connect your computer to the Orbic's WiFi network.</p>
+                <div class="steps">
+                    <div class="step">
+                        <h3>Connect to Device</h3>
+                        <p>Connect via USB (RNDIS) or the Orbic's WiFi network. The device should be at
+                            <code>192.168.1.1</code>.</p>
+                    </div>
+
+                    <div class="step">
+                        <h3>Run Shell Enabler</h3>
+                        <pre><code>python enable_shell.py YOUR_ADMIN_PASSWORD</code></pre>
+                        <p>Replace <code>YOUR_ADMIN_PASSWORD</code> with your Orbic admin password (found on device
+                            label or set in web UI).</p>
+                        <p>This script:</p>
+                        <ul>
+                            <li>Logs into the Orbic web API</li>
+                            <li>Exploits <code>SetRemoteAccessCfg</code> to start a netcat shell</li>
+                            <li>Opens port 24 for telnet access</li>
+                        </ul>
+                    </div>
                 </div>
 
-                <div class="step">
-                    <h3>Edit Script Paths</h3>
-                    <p>Open <code>deploy_base64.py</code> and update <code>FIRMWARE_DIR</code> to point to your local
-                        build.</p>
+                <h3>Step 2: Deploy Firmware</h3>
+                <p>Once the shell is enabled, deploy the DagShell firmware:</p>
+
+                <div class="steps">
+                    <div class="step">
+                        <h3>Run Deploy Script</h3>
+                        <pre><code>python deploy_base64.py</code></pre>
+                        <p>The script will:</p>
+                        <ul>
+                            <li>Kill any existing DagShell process</li>
+                            <li>Transfer the binary in base64 chunks</li>
+                            <li>Decode and make executable</li>
+                            <li>Configure autostart for persistence</li>
+                            <li>Start the HTTP server</li>
+                        </ul>
+                    </div>
                 </div>
 
-                <div class="step">
-                    <h3>Run Deploy Script</h3>
-                    <pre><code>python deploy_base64.py</code></pre>
-                    <p>The script will:</p>
-                    <ul>
-                        <li>Kill any existing DagShell process</li>
-                        <li>Transfer the binary in chunks</li>
-                        <li>Decode and make executable</li>
-                        <li>Start the HTTP server</li>
-                    </ul>
+                <div class="alert alert-info">
+                    💡 <strong>Persistence:</strong> The firmware is deployed to <code>/data/orbic_app</code> and
+                    configured
+                    to auto-start on boot. It will survive reboots!
                 </div>
+
+                <h3>Alternative: Network Deploy</h3>
+                <p>If you prefer to use HTTP download instead of base64 transfer:</p>
+                <pre><code>python deploy_net.py --host-ip YOUR_PC_IP</code></pre>
             </div>
 
-            <h3>Method 2: Network Transfer</h3>
-            <p>This method hosts the binary on a local HTTP server and downloads it via wget.</p>
+            <!-- Access -->
+            <div class="card">
+                <h2>🌐 Accessing DagShell</h2>
 
-            <div class="steps">
-                <div class="step">
-                    <h3>Configure</h3>
-                    <p>Edit <code>deploy_net.py</code> and set <code>HOST</code> to your PC's IP on the RNDIS interface.
-                    </p>
+                <p>Once deployed and running, access DagShell by opening your browser to:</p>
+
+                <pre><code>http://192.168.1.1:8081/</code></pre>
+
+                <div class="alert alert-info">
+                    💡 <strong>Tip:</strong> The stock Orbic web interface is still available at
+                    <code>http://192.168.1.1/</code> (port 80).
                 </div>
 
-                <div class="step">
-                    <h3>Run Deploy Script</h3>
-                    <pre><code>python deploy_net.py</code></pre>
-                    <p>This starts a local HTTP server and instructs the device to download the firmware.</p>
-                </div>
+                <h3>Default Pages</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Page</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>/</code></td>
+                            <td>Dashboard (Home)</td>
+                        </tr>
+                        <tr>
+                            <td><code>/?page=net</code></td>
+                            <td>Network Analysis</td>
+                        </tr>
+                        <tr>
+                            <td><code>/?page=privacy</code></td>
+                            <td>Privacy Tools</td>
+                        </tr>
+                        <tr>
+                            <td><code>/?page=sms</code></td>
+                            <td>SMS Manager</td>
+                        </tr>
+                        <tr>
+                            <td><code>/?page=tools</code></td>
+                            <td>Hacking Tools</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-        </div>
 
-        <!-- Access -->
-        <div class="card">
-            <h2>🌐 Accessing DagShell</h2>
+            <!-- Troubleshooting -->
+            <div class="card">
+                <h2>🔧 Troubleshooting</h2>
 
-            <p>Once deployed and running, access DagShell by opening your browser to:</p>
+                <h3>Connection Refused on Port 24</h3>
+                <p>The shell isn't enabled yet. Run <code>python enable_shell.py YOUR_PASSWORD</code> first.</p>
+                <p>If the script shows "Login retcode = 102", double-check your admin password.</p>
 
-            <pre><code>http://192.168.1.1:8081/</code></pre>
+                <h3>enable_shell.py Connection Errors</h3>
+                <p>If you see "connection closed before message completed":</p>
+                <ul>
+                    <li>Try again - the device can be flaky</li>
+                    <li>Reboot the Orbic and try immediately after it boots</li>
+                    <li>Make sure no other program is using the device</li>
+                </ul>
 
-            <div class="alert alert-info">
-                💡 <strong>Tip:</strong> The stock Orbic web interface is still available at
-                <code>http://192.168.1.1/</code> (port 80).
+                <h3>Binary Not Executing</h3>
+                <p>Make sure the binary was compiled statically for ARM. Check with <code>file orbic_app</code> - it
+                    should
+                    show ARM architecture.</p>
+
+                <h3>"Modem Port Busy" Errors</h3>
+                <p>Another process may be using <code>/dev/smd8</code>. The firmware will retry automatically, but if
+                    persistent, reboot the device.</p>
+
+                <h3>Page Not Loading After Deploy</h3>
+                <p>Verify DagShell is running: connect to port 24 and run <code>ps | grep orbic</code>.</p>
+                <p>If not running, manually start it: <code>/data/orbic_app &</code></p>
             </div>
 
-            <h3>Default Pages</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>URL</th>
-                        <th>Page</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>/</code></td>
-                        <td>Dashboard (Home)</td>
-                    </tr>
-                    <tr>
-                        <td><code>/?page=net</code></td>
-                        <td>Network Analysis</td>
-                    </tr>
-                    <tr>
-                        <td><code>/?page=privacy</code></td>
-                        <td>Privacy Tools</td>
-                    </tr>
-                    <tr>
-                        <td><code>/?page=sms</code></td>
-                        <td>SMS Manager</td>
-                    </tr>
-                    <tr>
-                        <td><code>/?page=tools</code></td>
-                        <td>Hacking Tools</td>
-                    </tr>
-                </tbody>
-            </table>
+            <!-- Footer -->
+            <footer class="footer">
+                <p>DagShell &copy; 2024 | Created by <a href="https://github.com/dagnazty" target="_blank">Daggy</a></p>
+                <p>Built with ❤️ and <code>gcc</code> | <a href="https://github.com/dagnazty/DagShell"
+                        target="_blank">GitHub</a></p>
+            </footer>
         </div>
 
-        <!-- Troubleshooting -->
-        <div class="card">
-            <h2>🔧 Troubleshooting</h2>
-
-            <h3>Connection Refused on Port 24</h3>
-            <p>The diagnostic port may not be open. Ensure your root exploit properly exposes port 24.</p>
-
-            <h3>Binary Not Executing</h3>
-            <p>Make sure the binary was compiled statically for ARM. Check with <code>file orbic_app</code> - it should
-                show ARM architecture.</p>
-
-            <h3>"Modem Port Busy" Errors</h3>
-            <p>Another process may be using <code>/dev/smd8</code>. The firmware will retry automatically, but if
-                persistent, reboot the device.</p>
-
-            <h3>Page Not Loading</h3>
-            <p>Verify DagShell is running by connecting to port 24 and running <code>ps | grep orbic</code>.</p>
-        </div>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <p>DagShell &copy; 2024 | Created by <a href="https://github.com/dagnazty" target="_blank">Daggy</a></p>
-            <p>Built with ❤️ and <code>gcc</code> | <a href="https://github.com/dagnazty/DagShell"
-                    target="_blank">GitHub</a></p>
-        </footer>
-    </div>
-
-    <script src="js/main.js"></script>
+        <script src="js/main.js"></script>
 </body>
 
 </html>
