@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Complete feature documentation for DagShell firmware including network tools, privacy features, and hacking utilities.">
+    <title>Features - DagShell</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="scanlines"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <pre class="ascii-logo">
+ ____             ____  _          _ _ 
+|  _ \  __ _  __ / ___|| |__   ___| | |
+| | | |/ _` |/ _\___ \| '_ \ / _ \ | |
+| |_| | (_| | (_| |__) | | | |  __/ | |
+|____/ \__,_|\__, |___/|_| |_|\___|_|_|
+             |___/                     
+            </pre>
+            <p class="tagline">[ Orbic RCL400 Custom Firmware ]</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <a href="index.html">[HOME]</a>
+            <a href="installation.html">[INSTALLATION]</a>
+            <a href="features.html" class="active">[FEATURES]</a>
+            <a href="faq.html">[FAQ]</a>
+        </nav>
+
+        <!-- Dashboard -->
+        <div class="card">
+            <h1>📋 Feature Documentation</h1>
+
+            <h2>🏠 Dashboard</h2>
+            <p>The home page provides an overview of your device and direct modem access.</p>
+
+            <h3>System Uptime</h3>
+            <p>Displays how long the device has been running since last boot (in seconds).</p>
+
+            <h3>AT Command Interface</h3>
+            <p>Send raw AT commands directly to the modem. Examples:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Command</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>ATI</code></td>
+                        <td>Display modem information</td>
+                    </tr>
+                    <tr>
+                        <td><code>AT+CSQ</code></td>
+                        <td>Check signal strength</td>
+                    </tr>
+                    <tr>
+                        <td><code>AT+COPS?</code></td>
+                        <td>Current network operator</td>
+                    </tr>
+                    <tr>
+                        <td><code>AT+CREG?</code></td>
+                        <td>Network registration status</td>
+                    </tr>
+                    <tr>
+                        <td><code>AT+CGSN</code></td>
+                        <td>Get IMEI number</td>
+                    </tr>
+                    <tr>
+                        <td><code>AT+CIMI</code></td>
+                        <td>Get IMSI number</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Network -->
+        <div class="card">
+            <h2>🌐 Network Analysis</h2>
+            <p>View detailed network information and manage TTL settings.</p>
+
+            <h3>Magic TTL Fix</h3>
+            <p>Set a custom TTL (Time To Live) value for outgoing packets. This helps mask hotspot traffic from carriers
+                that detect tethering.</p>
+            <div class="alert alert-info">
+                💡 <strong>Tip:</strong> A TTL of 65 is commonly used to disguise hotspot traffic as direct phone
+                traffic.
+            </div>
+
+            <h3>Interfaces</h3>
+            <p>Shows all network interfaces with their IP addresses, similar to running <code>ip addr</code>.</p>
+
+            <h3>Clients</h3>
+            <p>Displays the ARP table showing all devices connected to your hotspot, including their MAC and IP
+                addresses.</p>
+
+            <h3>Connections</h3>
+            <p>Active TCP/UDP connections through the device, showing source, destination, and connection state.</p>
+        </div>
+
+        <!-- Privacy -->
+        <div class="card">
+            <h2>🔒 Privacy Tools</h2>
+            <p>Protect your identity and block unwanted content.</p>
+
+            <h3>MAC Spoofing</h3>
+            <p>Change your device's MAC address to avoid tracking. Enter a new MAC in the format
+                <code>XX:XX:XX:XX:XX:XX</code>.
+            </p>
+            <div class="alert alert-warning">
+                ⚠️ <strong>Note:</strong> This temporarily brings the WiFi interface down, which may disconnect clients
+                briefly.
+            </div>
+
+            <h3>AdBlock</h3>
+            <p>Enable DNS-level ad blocking by redirecting known ad domains to <code>0.0.0.0</code> via the hosts file.
+                This affects all devices connected to the hotspot.</p>
+            <p>Currently blocks:</p>
+            <ul>
+                <li><code>doubleclick.net</code></li>
+            </ul>
+            <p>The hosts file can be extended by adding more domains to <code>/data/hosts</code>.</p>
+        </div>
+
+        <!-- SMS -->
+        <div class="card">
+            <h2>📱 SMS Manager</h2>
+            <p>Send text messages using the hotspot's cellular modem.</p>
+
+            <h3>Sending Messages</h3>
+            <p>Enter a phone number (with country code for international) and your message. The firmware uses AT
+                commands to queue the SMS.</p>
+
+            <h3>Viewing Inbox</h3>
+            <p>To view received messages, use the stock Orbic portal at:</p>
+            <pre><code>http://192.168.1.1/common/shortmessage.html</code></pre>
+
+            <div class="alert alert-info">
+                💡 <strong>Reply Feature:</strong> When clicking reply from the inbox link, the phone number will be
+                pre-filled in the send form.
+            </div>
+        </div>
+
+        <!-- Hacking Tools -->
+        <div class="card">
+            <h2>🔧 Hacking Tools</h2>
+            <p>Network reconnaissance and defense utilities.</p>
+
+            <h3>📡 IMSI Catcher Detector</h3>
+            <p>Monitors your cellular connection for signs of fake cell towers (IMSI catchers / Stingrays).</p>
+            <p>Displays:</p>
+            <ul>
+                <li><strong>Operator</strong> - Current network provider (AT+COPS?)</li>
+                <li><strong>Registration</strong> - Network registration status (AT+CREG?)</li>
+                <li><strong>Signal (CSQ)</strong> - Signal quality indicator</li>
+            </ul>
+            <div class="alert alert-warning">
+                ⚠️ <strong>Disclaimer:</strong> This is a basic detector. Professional IMSI catchers may not be
+                detected.
+            </div>
+
+            <h3>🔍 Port Scanner</h3>
+            <p>Scan a target IP address for open ports. Enter the target IP and a comma-separated list of ports to scan.
+            </p>
+            <p>Example: <code>192.168.1.1</code> with ports <code>22,80,443,8080</code></p>
+            <p>Uses <code>netcat</code> under the hood for connection testing.</p>
+
+            <h3>🛡️ Firewall Manager</h3>
+            <p>Manage iptables rules through a simple interface.</p>
+            <ul>
+                <li><strong>Block IP</strong> - Add a DROP rule for incoming traffic from the specified IP</li>
+                <li><strong>Unblock IP</strong> - Remove the DROP rule for the specified IP</li>
+            </ul>
+            <p>Current INPUT chain rules are displayed below the forms.</p>
+        </div>
+
+        <!-- GPS -->
+        <div class="card">
+            <h2>📍 GPS Tracker</h2>
+            <p>Track your location using GPS from connected devices (phone/laptop) via browser geolocation.</p>
+
+            <h3>How It Works</h3>
+            <p>Since the Orbic RCL400 doesn't expose its internal GPS, DagShell uses a clever workaround:</p>
+            <ol>
+                <li>Open the GPS page on a phone/laptop connected to the hotspot WiFi</li>
+                <li>Your browser asks for location permission</li>
+                <li>When granted, GPS coordinates are sent to the hotspot</li>
+                <li>Coordinates are stored and used for wardriving</li>
+            </ol>
+
+            <h3>Chrome Workaround</h3>
+            <p>Browser geolocation requires HTTPS. For Chrome to work over HTTP:</p>
+            <ol>
+                <li>Open <code>chrome://flags</code></li>
+                <li>Search for "insecure origins"</li>
+                <li>Add <code>http://192.168.1.1:8081</code></li>
+                <li>Restart Chrome</li>
+            </ol>
+
+            <h3>Cell Tower Backup</h3>
+            <p>When no GPS fix is available, the page displays cell tower information (MCC, MNC, LAC, Cell ID) which can
+                be used for approximate location via services like OpenCellID.</p>
+
+            <h3>GPS JSON API</h3>
+            <p>Access GPS data programmatically via:</p>
+            <pre><code>http://192.168.1.1:8081/?cmd=gps_json</code></pre>
+            <p>Returns JSON: <code>{"has_fix":1,"lat":"...","lon":"...","source":"Browser GPS"}</code></p>
+        </div>
+
+        <!-- Wardrive -->
+        <div class="card">
+            <h2>📶 Wardriver</h2>
+            <p>Scan and log WiFi networks in Wigle-compatible CSV format with GPS coordinates.</p>
+
+            <h3>GPS Integration</h3>
+            <p>The Wardrive page displays current GPS coordinates at the top. If no GPS fix is available:</p>
+            <ul>
+                <li><span style="color:#f00">Red</span> = No GPS (click link to set GPS)</li>
+                <li><span style="color:#0f0">Green</span> = GPS active</li>
+            </ul>
+            <div class="alert alert-warning">
+                ⚠️ <strong>Important:</strong> Set GPS on the GPS page before starting wardriving to ensure accurate
+                location data.
+            </div>
+
+            <h3>Single Scan</h3>
+            <p>Performs a one-time WiFi scan using <code>wlan1</code> and displays discovered networks with BSSID, SSID,
+                RSSI, and encryption type.</p>
+
+            <h3>Wardrive Loop</h3>
+            <p>Starts continuous scanning in the background (every 5 seconds), logging new networks to a timestamped CSV
+                file in
+                <code>/data/</code>. Each scan uses the current GPS coordinates.
+            </p>
+
+            <h3>CSV Format</h3>
+            <p>Logs are saved in Wigle-compatible format:</p>
+            <pre><code>MAC,SSID,AuthMode,FirstSeen,Channel,RSSI,Lat,Lon,Alt,Accuracy,Type</code></pre>
+
+            <div class="alert alert-info">
+                💡 <strong>Tip:</strong> Use the File Explorer to download your wardrive logs for uploading to
+                Wigle.net.
+            </div>
+        </div>
+
+        <!-- Files -->
+        <div class="card">
+            <h2>📁 File Explorer</h2>
+            <p>Browse, download, and delete files from the device's <code>/data/</code> directory.</p>
+
+            <h3>Download Files</h3>
+            <p>Click the "DL" button to download any file from the device (wardrive logs, etc.).</p>
+
+            <h3>Delete Files</h3>
+            <p>Remove files using the "Del" button. Wardrive CSV files can be deleted immediately; other files will
+                prompt for confirmation.</p>
+        </div>
+
+        <!-- Technical Details -->
+        <div class="card">
+            <h2>⚙️ Technical Details</h2>
+
+            <h3>Architecture</h3>
+            <p>DagShell is a single-threaded HTTP server written in C. It listens on port 8081 and serves dynamically
+                generated HTML pages.</p>
+
+            <h3>Modem Communication</h3>
+            <p>AT commands are sent through <code>/dev/smd8</code> (shared memory device). The port is opened with
+                retries to handle busy states.</p>
+
+            <h3>Binary Size</h3>
+            <p>The statically-linked ARM binary is approximately 200KB, allowing quick transfer over the network.</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>HTTP Port</td>
+                        <td>8081</td>
+                    </tr>
+                    <tr>
+                        <td>Modem Port</td>
+                        <td>/dev/smd8</td>
+                    </tr>
+                    <tr>
+                        <td>Binary</td>
+                        <td>/tmp/orbic_app</td>
+                    </tr>
+                    <tr>
+                        <td>Threading</td>
+                        <td>Single-threaded</td>
+                    </tr>
+                    <tr>
+                        <td>Linking</td>
+                        <td>Static (no libc dependency)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>DagShell &copy; 2024 | Created by <a href="https://github.com/dagnazty" target="_blank">dag</a></p>
+            <p>Built with ❤️ and <code>gcc</code> | <a href="https://github.com/dagnazty/DagShell"
+                    target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+
+</html>

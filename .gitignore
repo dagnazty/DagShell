@@ -29,3 +29,4 @@ Thumbs.db
 
 # Logs
 *.log
+/gcc_win

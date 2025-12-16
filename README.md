@@ -36,11 +36,28 @@ A terminal-styled custom firmware for the **Orbic RCL400** hotspot with hacking 
 - **Port Scanner**: Scan IPs for open ports
 - **Firewall Manager**: Block/unblock IPs with iptables
 
+### 📍 GPS Tracker
+- Get GPS from connected devices via browser geolocation
+- Chrome workaround for HTTP geolocation
+- Cell tower backup (MCC/MNC/LAC/CID)
+- JSON API for programmatic access
+
+### 📶 Wardriver
+- Scan WiFi networks with GPS coordinates
+- Wigle-compatible CSV export
+- Continuous loop mode (scans every 5 seconds)
+- Real-time GPS display on wardrive page
+
+### 📁 File Explorer
+- Browse `/data/` directory
+- Download wardrive logs and other files
+- Delete files with confirmation
+
 ## Requirements
 
-- Orbic RCL400 hotspot with root access (via exploit)
-- ARM cross-compiler (`arm-linux-gnueabi-gcc`)
-- Python 3 for deployment scripts
+- Orbic RCL400 hotspot
+- ARM cross-compiler (included in `gcc/` folder)
+- Python 3 with `requests` module
 
 ## Building
 
@@ -53,14 +70,23 @@ This produces `orbic_app` - a statically-linked ARM binary.
 
 ## Deploying
 
-1. Connect to the hotspot's WiFi
-2. Run the deployment script:
+### Step 1: Enable Root Shell
+
+```powershell
+python enable_shell.py YOUR_ADMIN_PASSWORD
+```
+
+This exploits the Orbic web API to open a shell on port 24.
+
+### Step 2: Deploy Firmware
 
 ```powershell
 python deploy_base64.py
 ```
 
-This uploads the binary to the device via the diagnostic port (24) and executes it.
+This uploads and installs DagShell with **boot persistence**.
+
+The firmware is deployed to `/data/orbic_app` and auto-starts on reboot.
 
 ## Accessing
 
@@ -85,5 +111,5 @@ MIT License - See LICENSE file.
 
 ## Credits
 
-- **Daggy** - Creator
+- **dag** - Creator
 - Built with ❤️ and `gcc`
