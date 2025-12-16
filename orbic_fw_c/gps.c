@@ -1,108 +1,186 @@
 #include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <time.h>
 #include "gps.h"
-
-// Reuse main.c's send_at_command via extern or re-implement?
-// Better to make send_at_command shared in utils.c but for now we'll duplicate or include
-// Actually, let's declare it extern if I move it to a header, but main.c has it static-ish.
-// I will implement a local helper to avoid linkage mess for now.
-// Or better: I will move send_at_command to utils.h later.
-// For speed, local implementation.
 
 #define MODEM_PORT "/dev/smd8"
 
+// GPS State - can come from browser or cell tower
+static char gps_lat[32] = "0";
+static char gps_lon[32] = "0";
+static int has_fix = 0;
+static time_t last_update_time = 0;
+static char gps_source[64] = "None";
+
+// Cell tower info
+static char cell_mcc[8] = "";
+static char cell_mnc[8] = "";
+static char cell_lac[16] = "";
+static char cell_cid[16] = "";
+
 static void gps_send_at(const char *cmd, char *resp, size_t max) {
+    memset(resp, 0, max);
     int fd = open(MODEM_PORT, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd < 0) return;
     
-    char buf[256];
+    char buf[128];
     snprintf(buf, sizeof(buf), "%s\r", cmd);
     write(fd, buf, strlen(buf));
-    usleep(100000); // 100ms
+    usleep(200000);
     
-    int total = 0;
-    while(total < max - 1) {
+    int total = 0, retries = 10;
+    while(retries-- > 0 && total < (int)max - 1) {
         int n = read(fd, resp + total, max - total - 1);
-        if (n > 0) total += n;
-        else { usleep(50000); break; }
+        if (n > 0) { total += n; retries = 3; }
+        else usleep(50000);
     }
     resp[total] = 0;
     close(fd);
 }
 
-// Global cached state
-static char last_lat[32] = "0";
-static char last_lon[32] = "0";
-static int has_fix = 0;
-
 void gps_init() {
-    char resp[128];
-    gps_send_at("AT+GPS=1", resp, sizeof(resp));
+    strcpy(gps_source, "Waiting...");
+    // Query cell tower info on init
+    gps_update_cell_info();
 }
 
-// Parse: +GPSINFO: 4044.3322,N,07400.1122,W,0.0,34.5,20230501,130005.0
-// DDMM.MMMM
-void gps_parse_coord(const char *raw, char dir, char *out) {
-    // raw format: 4044.3322 (40 deg, 44.3322 min)
-    if (strlen(raw) < 5) { strcpy(out, "0"); return; }
+// Parse cell info from AT+CREG response
+// Format: +CREG: 0,1,"LAC","CID" or +CREG: 0,1,LAC,CID
+void gps_update_cell_info() {
+    char resp[256];
     
-    double val = atof(raw);
-    int deg = (int)(val / 100);
-    double min = val - (deg * 100);
-    double dec = deg + (min / 60.0);
+    // Get registration info with LAC/CID
+    gps_send_at("AT+CREG=2", resp, sizeof(resp)); // Enable location info
+    usleep(100000);
+    gps_send_at("AT+CREG?", resp, sizeof(resp));
     
-    if (dir == 'S' || dir == 'W') dec = -dec;
+    // Parse LAC and CID
+    char *p = strstr(resp, "+CREG:");
+    if (p) {
+        // Skip to after the status fields
+        char *comma1 = strchr(p, ',');
+        if (comma1) {
+            char *comma2 = strchr(comma1 + 1, ',');
+            if (comma2) {
+                // LAC
+                char *lac_start = comma2 + 1;
+                while (*lac_start == ' ' || *lac_start == '"') lac_start++;
+                int i = 0;
+                while (lac_start[i] && lac_start[i] != ',' && lac_start[i] != '"' && i < 15) {
+                    cell_lac[i] = lac_start[i];
+                    i++;
+                }
+                cell_lac[i] = 0;
+                
+                // CID
+                char *comma3 = strchr(lac_start, ',');
+                if (comma3) {
+                    char *cid_start = comma3 + 1;
+                    while (*cid_start == ' ' || *cid_start == '"') cid_start++;
+                    i = 0;
+                    while (cid_start[i] && cid_start[i] != ',' && cid_start[i] != '"' && cid_start[i] != '\r' && i < 15) {
+                        cell_cid[i] = cid_start[i];
+                        i++;
+                    }
+                    cell_cid[i] = 0;
+                }
+            }
+        }
+    }
     
-    sprintf(out, "%.6f", dec);
+    // Get MCC/MNC from COPS
+    gps_send_at("AT+COPS?", resp, sizeof(resp));
+    p = strstr(resp, "+COPS:");
+    if (p) {
+        // Format: +COPS: 0,2,"310260",7  (MCC=310, MNC=260)
+        char *quote = strchr(p, '"');
+        if (quote) {
+            quote++;
+            // MCC is first 3 digits
+            strncpy(cell_mcc, quote, 3);
+            cell_mcc[3] = 0;
+            // MNC is next 2-3 digits
+            strncpy(cell_mnc, quote + 3, 3);
+            cell_mnc[3] = 0;
+            // Trim trailing quote
+            char *end = strchr(cell_mnc, '"');
+            if (end) *end = 0;
+        }
+    }
 }
 
 void gps_update() {
-    char resp[512];
-    gps_send_at("AT+GPSINFO?", resp, sizeof(resp));
-    // Check response
-    char *hdr = strstr(resp, "+GPSINFO:");
-    if (!hdr) return;
-    
-    hdr += 9; // Skip header
-    while(*hdr == ' ') hdr++;
-    
-    // Format: lat,N,lon,W,...
-    // If no fix: +GPSINFO: ,,,,,
-    if (hdr[0] == ',') {
-        has_fix = 0;
-        return;
+    // Check if GPS data is stale (>60 seconds old)
+    if (has_fix && last_update_time > 0) {
+        time_t now = time(NULL);
+        if (now - last_update_time > 60) {
+            has_fix = 0;
+            strcpy(gps_source, "GPS data stale");
+        }
     }
     
-    // Parse
-    char lat_raw[32] = {0};
-    char lat_dir = 'N';
-    char lon_raw[32] = {0};
-    char lon_dir = 'E';
-    
-    // Tokenize manually to avoid strtok modifying buffer weirdly
-    int i = 0;
-    // Lat
-    int j = 0;
-    while(hdr[i] != ',' && hdr[i] && j<31) lat_raw[j++] = hdr[i++];
-    i++; // skip comma
-    lat_dir = hdr[i++];
-    i++; // skip comma
-    // Lon
-    j = 0; 
-    while(hdr[i] != ',' && hdr[i] && j<31) lon_raw[j++] = hdr[i++];
-    i++;
-    lon_dir = hdr[i++];
-    
-    gps_parse_coord(lat_raw, lat_dir, last_lat);
-    gps_parse_coord(lon_raw, lon_dir, last_lon);
-    has_fix = 1;
+    // Update cell info periodically
+    static time_t last_cell_update = 0;
+    time_t now = time(NULL);
+    if (now - last_cell_update > 30) {
+        gps_update_cell_info();
+        last_cell_update = now;
+    }
+}
+
+// Receive GPS coordinates from a connected client browser
+void gps_set_client_location(const char *lat, const char *lon) {
+    if (lat && lon && strlen(lat) > 0 && strlen(lon) > 0) {
+        strncpy(gps_lat, lat, sizeof(gps_lat) - 1);
+        strncpy(gps_lon, lon, sizeof(gps_lon) - 1);
+        has_fix = 1;
+        last_update_time = time(NULL);
+        strcpy(gps_source, "Browser GPS");
+    }
+}
+
+// Get current GPS coordinates
+int gps_get_coords(char *lat, char *lon, int max_len) {
+    if (has_fix) {
+        strncpy(lat, gps_lat, max_len - 1);
+        strncpy(lon, gps_lon, max_len - 1);
+        return 0;
+    }
+    strncpy(lat, "0", max_len);
+    strncpy(lon, "0", max_len);
+    return -1;
 }
 
 int gps_get_json(char *buffer, int max_len) {
-    if (!has_fix) return -1;
-    snprintf(buffer, max_len, "{\"lat\": %s, \"lon\": %s}", last_lat, last_lon);
-    return 0;
+    snprintf(buffer, max_len, 
+        "{\"has_fix\":%d,\"lat\":\"%s\",\"lon\":\"%s\",\"source\":\"%s\","
+        "\"cell\":{\"mcc\":\"%s\",\"mnc\":\"%s\",\"lac\":\"%s\",\"cid\":\"%s\"}}",
+        has_fix, gps_lat, gps_lon, gps_source,
+        cell_mcc, cell_mnc, cell_lac, cell_cid);
+    return has_fix ? 0 : -1;
+}
+
+void gps_get_status_html(char *buffer, int max_len) {
+    time_t now = time(NULL);
+    int age = last_update_time > 0 ? (int)(now - last_update_time) : -1;
+    
+    if (has_fix) {
+        snprintf(buffer, max_len,
+            "<p style='color:#0f0'>\xe2\x9c\x93 <strong>GPS Fix (%s)</strong></p>"
+            "<p>Latitude: <strong>%s</strong></p>"
+            "<p>Longitude: <strong>%s</strong></p>"
+            "<p style='font-size:11px'>Updated %ds ago</p>",
+            gps_source, gps_lat, gps_lon, age);
+    } else {
+        snprintf(buffer, max_len,
+            "<p style='color:#ff0'>\xe2\x8f\xb3 <strong>No GPS Fix</strong></p>"
+            "<p style='font-size:11px'>Cell: MCC=%s MNC=%s LAC=%s CID=%s</p>",
+            cell_mcc[0] ? cell_mcc : "?",
+            cell_mnc[0] ? cell_mnc : "?",
+            cell_lac[0] ? cell_lac : "?",
+            cell_cid[0] ? cell_cid : "?");
+    }
 }

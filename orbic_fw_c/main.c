@@ -178,9 +178,34 @@ void handle_client(int client_fd) {
     // API: GPS JSON
     if (strstr(buffer, "cmd=gps_json")) {
         char json[256];
-        if (gps_get_json(json, sizeof(json)) < 0) sprintf(json, "{\"lat\":\"0\",\"lon\":\"0\"}");
+        gps_get_json(json, sizeof(json));
         char resp[512];
         snprintf(resp, sizeof(resp), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n%s", json);
+        send(client_fd, resp, strlen(resp), 0);
+        close(client_fd);
+        return;
+    }
+    
+    // API: Receive GPS from client browser
+    if (strstr(buffer, "set_gps=")) {
+        char *gps_ptr = strstr(buffer, "set_gps=");
+        if (gps_ptr) {
+            char raw[128] = {0}, decoded[128] = {0};
+            char *end = strchr(gps_ptr + 8, ' ');
+            if (!end) end = strchr(gps_ptr + 8, '&');
+            if (!end) end = gps_ptr + 8 + strlen(gps_ptr + 8);
+            int len = (end - (gps_ptr + 8));
+            if (len > 127) len = 127;
+            strncpy(raw, gps_ptr + 8, len);
+            url_decode(decoded, raw);
+            // Parse lat,lon
+            char *comma = strchr(decoded, ',');
+            if (comma) {
+                *comma = '\0';
+                gps_set_client_location(decoded, comma + 1);
+            }
+        }
+        char *resp = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nAccess-Control-Allow-Origin: *\r\n\r\nOK";
         send(client_fd, resp, strlen(resp), 0);
         close(client_fd);
         return;
@@ -387,9 +412,41 @@ void handle_client(int client_fd) {
             "<pre>%s</pre></div>", cell, creg, csq, scan_res, rules);
     }
     else if (strcmp(page, "gps") == 0) {
-        gps_update(); char json[256]; gps_get_json(json, sizeof(json));
-        o += sprintf(body+o, "<div class='card'><h2>GPS Tracker</h2>"
-            "<p>Data: %s</p><button onclick='location.reload()'>Refresh</button></div>", json);
+        gps_update(); 
+        char status_html[512]; 
+        gps_get_status_html(status_html, sizeof(status_html));
+        o += sprintf(body+o, "<div class='card'><h2>📍 GPS Tracker</h2>"
+            "<div id='gps-status'>%s</div>"
+            "<div id='browser-gps'></div>"
+            "<button onclick='updateGPS()' style='margin-top:10px'>Update GPS</button>"
+            "<script>"
+            "function sendGPS(lat,lon){"
+            "  var el=document.getElementById('browser-gps');"
+            "  fetch('/?set_gps='+lat+','+lon).then(function(){"
+            "    el.innerHTML='<p style=\"color:#0f0\">GPS sent: '+lat+','+lon+'</p>';"
+            "    sessionStorage.setItem('gps_sent','1');"
+            "  });"
+            "}"
+            "function updateGPS(){"
+            "  var el=document.getElementById('browser-gps');"
+            "  if(!navigator.geolocation){el.innerHTML='<p>Geolocation not supported</p>';return;}"
+            "  el.innerHTML='<p style=\"color:#0ff\">Requesting GPS...</p>';"
+            "  navigator.geolocation.getCurrentPosition("
+            "    function(pos){sendGPS(pos.coords.latitude.toFixed(6),pos.coords.longitude.toFixed(6));},"
+            "    function(err){"
+            "      el.innerHTML='<p style=\"color:#f66\">'+err.message+'</p>'+"
+            "        '<div style=\"background:#111;padding:10px;margin:10px 0;font-size:11px\">'+"
+            "        '<b>Chrome Fix:</b><br>1. Open chrome://flags<br>'+"
+            "        '2. Search: insecure origins<br>'+"
+            "        '3. Add: http://192.168.1.1:8081<br>'+"
+            "        '4. Restart Chrome</div>';"
+            "    },{timeout:10000}"
+            "  );"
+            "}"
+            "if(!sessionStorage.getItem('gps_sent')){updateGPS();}"
+            "else{document.getElementById('browser-gps').innerHTML='<p style=\"color:#888\">GPS active this session</p>';}"
+            "</script>"
+            "</div>", status_html);
     }
     else if (strcmp(page, "wardrive") == 0) {
         char res[8192]="";
@@ -442,18 +499,33 @@ void handle_client(int client_fd) {
                 p++; // Move past to find next entry
             }
         }
-        if (strstr(buffer,"action=log")) { wifi_new_session(); wifi_log_kml("0","0"); strcpy(res,"Logged to new file."); }
+        
+        // Get current GPS for display and logging
+        char gps_lat[32] = "0", gps_lon[32] = "0";
+        gps_update();
+        int has_gps = (gps_get_coords(gps_lat, gps_lon, sizeof(gps_lat)) == 0);
+        
+        if (strstr(buffer,"action=log")) { 
+            wifi_new_session(); 
+            wifi_log_kml(gps_lat, gps_lon); 
+            strcpy(res,"Logged to new file."); 
+        }
         if (strstr(buffer,"action=start")) { wifi_start_wardrive(); strcpy(res,"Loop Started."); }
         if (strstr(buffer,"action=stop")) { wifi_stop_wardrive(); strcpy(res,"Loop Stopped."); }
         
         o += sprintf(body+o, "<div class='card'><h2>Wardriver</h2>"
             "<p>Status: <b>%s</b></p>"
+            "<p>GPS: <b style='color:%s'>%s, %s</b> %s</p>"
             "<a href='/?page=wardrive&action=start'><button>Start Loop</button></a> "
             "<a href='/?page=wardrive&action=stop'><button class='warn'>Stop Loop</button></a><br><br>"
             "<a href='/?page=wardrive&action=scan'><button>Single Scan</button></a> "
             "<a href='/?page=wardrive&action=log'><button>Log Single</button></a>"
             "<pre style='font-size:11px;overflow-x:auto;'>%s</pre></div>", 
-            wifi_is_wardriving()?"RUNNING":"STOPPED", res);
+            wifi_is_wardriving()?"RUNNING":"STOPPED",
+            has_gps ? "#0f0" : "#f66",
+            gps_lat, gps_lon,
+            has_gps ? "" : "<a href='/?page=gps'>(Set GPS)</a>",
+            res);
     }
 
     else if (strcmp(page, "files") == 0) {

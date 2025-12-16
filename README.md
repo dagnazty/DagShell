@@ -36,6 +36,23 @@ A terminal-styled custom firmware for the **Orbic RCL400** hotspot with hacking 
 - **Port Scanner**: Scan IPs for open ports
 - **Firewall Manager**: Block/unblock IPs with iptables
 
+### 📍 GPS Tracker
+- Get GPS from connected devices via browser geolocation
+- Chrome workaround for HTTP geolocation
+- Cell tower backup (MCC/MNC/LAC/CID)
+- JSON API for programmatic access
+
+### 📶 Wardriver
+- Scan WiFi networks with GPS coordinates
+- Wigle-compatible CSV export
+- Continuous loop mode (scans every 5 seconds)
+- Real-time GPS display on wardrive page
+
+### 📁 File Explorer
+- Browse `/data/` directory
+- Download wardrive logs and other files
+- Delete files with confirmation
+
 ## Requirements
 
 - Orbic RCL400 hotspot

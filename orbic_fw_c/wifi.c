@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <time.h>
 #include "wifi.h"
+#include "gps.h"
 
 typedef struct {
     char bssid[20];
@@ -197,7 +198,15 @@ void wifi_wardrive_process() {
     wifi_new_session();
     
     while(1) {
-        wifi_log_kml("0", "0");
+        // Get current GPS coordinates
+        char lat[32], lon[32];
+        gps_update();
+        if (gps_get_coords(lat, lon, sizeof(lat)) < 0) {
+            // No GPS fix - use 0,0
+            strcpy(lat, "0");
+            strcpy(lon, "0");
+        }
+        wifi_log_kml(lat, lon);
         sleep(5); 
     }
 }
