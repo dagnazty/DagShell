@@ -10,12 +10,150 @@
 #include <ctype.h>
 #include <time.h>
 
+// BearSSL - statically linked TLS library
+#include "bearssl.h"
+
 #include "gps.h"
 #include "wifi.h"
 
-#define PORT 8081
-#define BUFFER_SIZE 8192  // Increased buffer for larger pages
+#define PORT 8443  // HTTPS port (non-standard to avoid Verizon captive portal)
+#define BUFFER_SIZE 8192
 #define MODEM_PORT "/dev/smd8"
+
+// BearSSL context and buffers
+static br_ssl_server_context sc;
+static unsigned char iobuf[BR_SSL_BUFSIZE_BIDI];
+static br_x509_certificate chain[2]; // Increased to 2 for Leaf + Root
+static size_t chain_len;
+static br_skey_decoder_context key_decoder;  // Must be static - RSA key points into this
+static const br_rsa_private_key *rsa_key;    // Pointer, not copy
+static unsigned char *cert_data = NULL;
+static unsigned char *root_data = NULL; // Storage for Root CA
+static unsigned char *key_data = NULL;
+
+// Supported cipher suites (ECDHE preferred for browsers)
+static const uint16_t suites[] = {
+    BR_TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+    BR_TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    BR_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    BR_TLS_RSA_WITH_AES_128_GCM_SHA256,
+    BR_TLS_RSA_WITH_AES_256_GCM_SHA384
+};
+
+// Socket I/O callbacks for BearSSL
+static int sock_read(void *ctx, unsigned char *buf, size_t len) {
+    int fd = *(int *)ctx;
+    ssize_t rlen = read(fd, buf, len);
+    if (rlen <= 0) return -1;
+    
+    // Debug: Print first 5 bytes to diagnose TLS issues
+    if (rlen >= 5) {
+        fprintf(stderr, "RX(%zd): %02x %02x %02x %02x %02x\n", 
+                rlen, buf[0], buf[1], buf[2], buf[3], buf[4]);
+    }
+    
+    return (int)rlen;
+}
+
+static int sock_write(void *ctx, const unsigned char *buf, size_t len) {
+    int fd = *(int *)ctx;
+    ssize_t wlen = write(fd, buf, len);
+    if (wlen <= 0) return -1;
+    return (int)wlen;
+}
+
+// Load file into memory
+static unsigned char *load_file(const char *path, size_t *len) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    *len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    unsigned char *buf = malloc(*len);
+    if (buf) fread(buf, 1, *len, f);
+    fclose(f);
+    return buf;
+}
+
+// Load certificate chain (Leaf + Root)
+static int decode_chain(const unsigned char *leaf_data, size_t leaf_len,
+                        const unsigned char *root_data, size_t root_len) {
+    // 1st cert: Leaf (server)
+    chain[0].data = (unsigned char *)leaf_data;
+    chain[0].data_len = leaf_len;
+    
+    // 2nd cert: Root CA
+    chain[1].data = (unsigned char *)root_data;
+    chain[1].data_len = root_len;
+    
+    chain_len = 2; // Serve both
+    return 0;
+}
+
+// Simple RSA key decoder
+static int decode_key(const unsigned char *data, size_t len) {
+    br_skey_decoder_init(&key_decoder);
+    br_skey_decoder_push(&key_decoder, data, len);
+    int err = br_skey_decoder_last_error(&key_decoder);
+    if (err != 0) {
+        fprintf(stderr, "Key decode error: %d\n", err);
+        return -1;
+    }
+    if (br_skey_decoder_key_type(&key_decoder) != BR_KEYTYPE_RSA) {
+        fprintf(stderr, "Not an RSA key\n");
+        return -1;
+    }
+    rsa_key = br_skey_decoder_get_rsa(&key_decoder);  // Get pointer, don't copy
+    return 0;
+}
+
+// Initialize BearSSL server context
+static int init_ssl_server() {
+    size_t cert_len, root_len, key_len;
+    
+    // Load DER Leaf Certificate
+    cert_data = load_file("/data/server.der", &cert_len);
+    if (!cert_data) {
+        fprintf(stderr, "Failed to load /data/server.der\n");
+        return -1;
+    }
+    
+    // Load DER Root Certificate
+    root_data = load_file("/data/root.der", &root_len);
+    if (!root_data) {
+        fprintf(stderr, "Failed to load /data/root.der\n");
+        // Don't fail hard if root missing? No, iOS needs it.
+        return -1;
+    }
+
+    // Load DER private key
+    key_data = load_file("/data/server.key.der", &key_len);
+    if (!key_data) {
+        fprintf(stderr, "Failed to load /data/server.key.der\n");
+        free(cert_data);
+        free(root_data);
+        return -1;
+    }
+    
+    if (decode_chain(cert_data, cert_len, root_data, root_len) < 0) return -1;
+    if (decode_key(key_data, key_len) < 0) return -1;
+    
+    // Initialize server context with RSA defaults (handles RNG, hashes, etc.)
+    br_ssl_server_init_full_rsa(&sc, chain, chain_len, rsa_key);
+    
+    // Enforce TLS 1.2 only (Required for modern iOS, disable 1.0/1.1)
+    br_ssl_engine_set_versions(&sc.eng, BR_TLS12, BR_TLS12);
+    
+    // Explicitly set cipher suites to enforce ECDHE for browser compatibility
+    // Note: These settings are re-applied in the connection loop after reset
+    br_ssl_engine_set_suites(&sc.eng, suites, (sizeof suites) / (sizeof suites[0]));
+        
+    br_ssl_engine_set_buffer(&sc.eng, iobuf, sizeof(iobuf), 1);
+    
+    printf("BearSSL server initialized (Chain size: %zu)\n", chain_len);
+    return 0;
+}
+
 
 // --- HELPERS ---
 void url_decode(char *dst, const char *src) {
@@ -93,12 +231,11 @@ void send_sms(const char *number, const char *msg, char *status, size_t max_len)
 }
 
 
-void handle_client(int client_fd) {
+void handle_client(br_sslio_context *ioc) {
     char buffer[BUFFER_SIZE];
-    ssize_t bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_read <= 0) { close(client_fd); return; }
-    buffer[bytes_read] = '\0';
-
+    int bytes_read = br_sslio_read(ioc, buffer, sizeof(buffer) - 1);
+    if (bytes_read <= 0) { return; }
+    buffer[bytes_read] = 0;
 
     // API: File Download - Handle GET /download?file=/data/filename (MUST BE BEFORE BUFFER MODIFICATION)
     if (strncmp(buffer, "GET /download?file=", 19) == 0) {
@@ -131,22 +268,23 @@ void handle_client(int client_fd) {
                         "Content-Disposition: attachment; filename=\"%s\"\r\n"
                         "Content-Length: %ld\r\n"
                         "Connection: close\r\n\r\n", bname, fsize);
-                    send(client_fd, header, strlen(header), 0);
+                    br_sslio_write_all(ioc, header, strlen(header));
                     
                     char chunk[4096];
                     size_t n;
                     while ((n = fread(chunk, 1, sizeof(chunk), fp)) > 0) {
-                        send(client_fd, chunk, n, 0);
+                        br_sslio_write_all(ioc, chunk, n);
                     }
                     fclose(fp);
-                    close(client_fd);
+                    
                     return;
                 }
             }
         }
         char *err = "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\nFile not found";
-        send(client_fd, err, strlen(err), 0);
-        close(client_fd);
+        br_sslio_write_all(ioc, err, strlen(err));
+        br_sslio_flush(ioc);
+        
         return;
     }
 
@@ -181,8 +319,9 @@ void handle_client(int client_fd) {
         gps_get_json(json, sizeof(json));
         char resp[512];
         snprintf(resp, sizeof(resp), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n%s", json);
-        send(client_fd, resp, strlen(resp), 0);
-        close(client_fd);
+        br_sslio_write_all(ioc, resp, strlen(resp));
+        br_sslio_flush(ioc);
+        
         return;
     }
     
@@ -206,15 +345,16 @@ void handle_client(int client_fd) {
             }
         }
         char *resp = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nAccess-Control-Allow-Origin: *\r\n\r\nOK";
-        send(client_fd, resp, strlen(resp), 0);
-        close(client_fd);
+        br_sslio_write_all(ioc, resp, strlen(resp));
+        br_sslio_flush(ioc);
+        
         return;
     }
 
     // --- RENDER UI ---
     // Using heap for body to avoid stack overflow with large pages
     char *body = malloc(65536);
-    if (!body) { close(client_fd); return; }
+    if (!body) {  return; }
     
     int o = 0;
     
@@ -608,12 +748,13 @@ void handle_client(int client_fd) {
     char resp[16384]; // Header buffer
     // Send header first
     sprintf(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n");
-    send(client_fd, resp, strlen(resp), 0);
+    br_sslio_write_all(ioc, resp, strlen(resp));
     // Send body
-    send(client_fd, body, strlen(body), 0);
+    br_sslio_write_all(ioc, body, strlen(body));
+    br_sslio_flush(ioc);
     
     free(body);
-    close(client_fd);
+    
 }
 
 int main(int argc, char *argv[]) {
@@ -622,6 +763,13 @@ int main(int argc, char *argv[]) {
         wifi_wardrive_process();
         return 0;
     }
+
+    // Initialize BearSSL server
+    if (init_ssl_server() < 0) {
+        fprintf(stderr, "Failed to initialize SSL. Exiting.\n");
+        return 1;
+    }
+    printf("HTTPS server starting on port %d...\n", PORT);
 
     gps_init();
     
@@ -634,9 +782,74 @@ int main(int argc, char *argv[]) {
     address.sin_family = AF_INET; address.sin_addr.s_addr = INADDR_ANY; address.sin_port = htons(PORT);
     bind(server_fd, (struct sockaddr *)&address, sizeof(address));
     listen(server_fd, 3);
+    
     while (1) {
         if ((client_fd = accept(server_fd, (struct sockaddr *)&address, &addrlen)) >= 0) {
-            handle_client(client_fd);
+            // Set socket timeout to prevent blocking on incompatible TLS clients
+            struct timeval tv;
+            tv.tv_sec = 10;
+            tv.tv_usec = 0;
+            setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+            setsockopt(client_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+            
+            // HTTP/HTTPS detection logic removed to avoid I/O interference.
+            // Assuming strict HTTPS connections.
+            
+            // Reset server context for new connection
+            br_ssl_server_reset(&sc);
+            
+            // DEBUG: Check versions before
+            // printf("Versions before: %04x - %04x\n", sc.eng.version_min, sc.eng.version_max);
+            
+            // Re-apply settings (reset reverts engine to defaults)
+            br_ssl_engine_set_versions(&sc.eng, BR_TLS12, BR_TLS12);
+            br_ssl_engine_set_suites(&sc.eng, suites, (sizeof suites) / (sizeof suites[0]));
+
+            // DEBUG: Check versions after
+            fprintf(stderr, "BearSSL config: Versions %04x-%04x, Suites Re-applied\n", sc.eng.version_min, sc.eng.version_max);
+
+            
+            // Set up BearSSL I/O wrapper
+            br_sslio_context ioc;
+            br_sslio_init(&ioc, &sc.eng, sock_read, &client_fd, sock_write, &client_fd);
+            
+            // Perform handshake by flushing
+            br_sslio_flush(&ioc);
+            
+            // Check handshake state
+            unsigned state = br_ssl_engine_current_state(&sc.eng);
+            if (state == BR_SSL_CLOSED) {
+                int err = br_ssl_engine_last_error(&sc.eng);
+                if (err != 0) {
+                    fprintf(stderr, "SSL handshake failed (Error %d) - Check version/cipher support\n", err);
+                }
+                // Fallthrough to cleanup to ensure drain
+            } else {
+                fprintf(stderr, "Handshake success. Handling client...\n");
+                handle_client(&ioc);
+            }
+            
+            // CLEANUP & DRAIN (Critical for preventing Browser RST)
+            
+            // 1. Attempt to send close_notify if not already closed
+            if (br_ssl_engine_current_state(&sc.eng) != BR_SSL_CLOSED) {
+                br_ssl_engine_close(&sc.eng);
+                br_sslio_flush(&ioc);
+            }
+
+            // 2. Shutdown Write side (sends TCP FIN)
+            shutdown(client_fd, SHUT_WR);
+            
+            // 3. Drain any remaining data from client (discard it)
+            // Use a short 1s timeout for the drain to avoid hanging
+            struct timeval drain_tv = {1, 0};
+            setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &drain_tv, sizeof(drain_tv));
+            
+            char junk[256];
+            while (read(client_fd, junk, sizeof(junk)) > 0);
+            
+            // 4. Close file descriptor
+            close(client_fd);
         }
     }
     return 0;

@@ -63,10 +63,11 @@ A terminal-styled custom firmware for the **Orbic RCL400** hotspot with hacking 
 
 ```powershell
 cd orbic_fw_c
-.\build.ps1
+python gen_pki.py   # Generate 2-Tier PKI (Root + Leaf)
+.\build.ps1        # Compile firmware
 ```
 
-This produces `orbic_app` - a statically-linked ARM binary.
+This produces `orbic_app` (static ARM binary) and DER certificate files.
 
 ## Deploying
 
@@ -84,13 +85,22 @@ This exploits the Orbic web API to open a shell on port 24.
 python deploy_base64.py
 ```
 
-This uploads and installs DagShell with **boot persistence**.
+This uploads and installs:
+- DagShell Firmware (`/data/orbic_app`)
+- Certificate Chain (`/data/root.der`, `/data/server.der`)
+- Boot Persistence Script
 
-The firmware is deployed to `/data/orbic_app` and auto-starts on reboot.
+The firmware auto-starts on reboot (port 8443).
 
 ## Accessing
 
-Open your browser to: `http://192.168.1.1:8081/`
+Open your browser to: **`https://192.168.1.1:8443/`**
+
+> **Note:** You will see a "Not Secure" or "Not Trusted" warning because the certificate is self-signed.
+> - **PC:** Click "Advanced" -> "Proceed to 192.168.1.1 (unsafe)".
+> - **Mobile (iOS/Android):** Click "Show Details" -> "visit this website". 
+> 
+> The connection IS encrypted (TLS 1.2+), but the root CA is not in your device's trust store. This is expected behavior for custom firmware.
 
 ## Screenshots
 

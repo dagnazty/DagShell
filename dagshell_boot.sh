@@ -7,7 +7,10 @@
 # We use busybox explicitly to avoid path issues
 busybox nc -ll -p 24 -e /bin/sh &
 
-# 2. Start DagShell (Port 8081)
+# 2. Open HTTPS port (Port 8443)
+iptables -I INPUT -p tcp --dport 8443 -j ACCEPT
+
+# 3. Start DagShell (Port 8443 HTTPS)
 # Give network a moment, then launch
 sleep 5
 /data/orbic_app &

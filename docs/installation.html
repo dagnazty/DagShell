@@ -85,8 +85,9 @@ cd DagShell</code></pre>
                 <div class="step">
                     <h3>Build the Firmware</h3>
                     <pre><code>cd orbic_fw_c
+python gen_pki.py # Generate PKI Chain
 .\build.ps1</code></pre>
-                    <p>This produces <code>orbic_app</code> - a statically-linked ARM binary (~200KB).</p>
+                    <p>This produces <code>orbic_app</code> (static ARM binary) and DER certificates.</p>
                 </div>
             </div>
 
@@ -131,9 +132,9 @@ cd DagShell</code></pre>
                         <ul>
                             <li>Kill any existing DagShell process</li>
                             <li>Transfer the binary in base64 chunks</li>
+                            <li>Transfer the SSL Certificate Chain (Root + Leaf)</li>
                             <li>Decode and make executable</li>
-                            <li>Configure autostart for persistence</li>
-                            <li>Start the HTTP server</li>
+                            <li>Configure autostart for persistence (port 8443)</li>
                         </ul>
                     </div>
                 </div>
@@ -155,7 +156,17 @@ cd DagShell</code></pre>
 
                 <p>Once deployed and running, access DagShell by opening your browser to:</p>
 
-                <pre><code>http://192.168.1.1:8081/</code></pre>
+                <pre><code>https://192.168.1.1:8443/</code></pre>
+
+                <div class="alert alert-warning">
+                    ⚠️ <strong>Certificate Warning:</strong> You will see a "Not Secure" or "Certificate Unknown"
+                    warning.
+                    <ul>
+                        <li><strong>PC:</strong> Click "Advanced" → "Proceed".</li>
+                        <li><strong>iOS/Android:</strong> Click "Show Details" → "visit this website".</li>
+                    </ul>
+                    The connection IS encrypted. The warning appears because the Root CA is self-signed.
+                </div>
 
                 <div class="alert alert-info">
                     💡 <strong>Tip:</strong> The stock Orbic web interface is still available at
