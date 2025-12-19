@@ -186,34 +186,37 @@
         <!-- GPS -->
         <div class="card">
             <h2>📍 GPS Tracker</h2>
-            <p>Track your location using GPS from connected devices (phone/laptop) via browser geolocation.</p>
+            <p>Track your location using GPS from connected devices (phone/laptop) via browser geolocation or cell tower
+                lookup.</p>
 
-            <h3>How It Works</h3>
-            <p>Since the Orbic RCL400 doesn't expose its internal GPS, DagShell uses a clever workaround:</p>
+            <h3>Auto-GPS on Every Page</h3>
+            <p>A GPS indicator appears in the bottom-right corner of every page, polling every 30 seconds:</p>
+            <ul>
+                <li><span style="color:#0f0">📍 Green border</span> = GPS fix active</li>
+                <li><span style="color:#ff0">📍 Yellow border</span> = Looking up location...</li>
+                <li><span style="color:#f00">📍 Red border</span> = No GPS fix</li>
+            </ul>
+
+            <h3>Cell Tower Lookup (OpenCellID)</h3>
+            <p>When browser geolocation fails or isn't available, DagShell automatically uses cell tower information to
+                get approximate coordinates:</p>
             <ol>
-                <li>Open the GPS page on a phone/laptop connected to the hotspot WiFi</li>
-                <li>Your browser asks for location permission</li>
-                <li>When granted, GPS coordinates are sent to the hotspot</li>
-                <li>Coordinates are stored and used for wardriving</li>
+                <li>Device reads cell info from modem (MCC, MNC, LAC, CID)</li>
+                <li>Your browser calls the OpenCellID API</li>
+                <li>Coordinates are sent back to the device</li>
             </ol>
+            <div class="alert alert-info">
+                💡 <strong>Setup:</strong> Configure your OpenCellID token in Settings to enable cell tower lookup.
+            </div>
 
-            <h3>Chrome Workaround</h3>
-            <p>Browser geolocation requires HTTPS. For Chrome to work over HTTP:</p>
-            <ol>
-                <li>Open <code>chrome://flags</code></li>
-                <li>Search for "insecure origins"</li>
-                <li>Add <code>http://192.168.1.1:8081</code></li>
-                <li>Restart Chrome</li>
-            </ol>
-
-            <h3>Cell Tower Backup</h3>
-            <p>When no GPS fix is available, the page displays cell tower information (MCC, MNC, LAC, Cell ID) which can
-                be used for approximate location via services like OpenCellID.</p>
+            <h3>Browser Geolocation</h3>
+            <p>If your browser supports geolocation and you grant permission, high-accuracy GPS coordinates from your
+                phone/laptop will be used.</p>
 
             <h3>GPS JSON API</h3>
             <p>Access GPS data programmatically via:</p>
-            <pre><code>http://192.168.1.1:8081/?cmd=gps_json</code></pre>
-            <p>Returns JSON: <code>{"has_fix":1,"lat":"...","lon":"...","source":"Browser GPS"}</code></p>
+            <pre><code>https://192.168.1.1:8443/?cmd=gps_json</code></pre>
+            <p>Returns JSON: <code>{"has_fix":1,"lat":"...","lon":"...","source":"Browser GPS","cell":{...}}</code></p>
         </div>
 
         <!-- Wardrive -->
@@ -221,15 +224,12 @@
             <h2>📶 Wardriver</h2>
             <p>Scan and log WiFi networks in Wigle-compatible CSV format with GPS coordinates.</p>
 
-            <h3>GPS Integration</h3>
-            <p>The Wardrive page displays current GPS coordinates at the top. If no GPS fix is available:</p>
-            <ul>
-                <li><span style="color:#f00">Red</span> = No GPS (click link to set GPS)</li>
-                <li><span style="color:#0f0">Green</span> = GPS active</li>
-            </ul>
-            <div class="alert alert-warning">
-                ⚠️ <strong>Important:</strong> Set GPS on the GPS page before starting wardriving to ensure accurate
-                location data.
+            <h3>Automatic GPS Waiting</h3>
+            <p>The wardrive loop will <strong>wait for a GPS fix</strong> before starting to scan. This ensures all
+                logged networks have valid coordinates (no 0,0 entries).</p>
+            <div class="alert alert-info">
+                💡 <strong>Tip:</strong> Keep a browser page open on your phone to provide continuous GPS updates to the
+                device.
             </div>
 
             <h3>Single Scan</h3>
@@ -238,27 +238,35 @@
 
             <h3>Wardrive Loop</h3>
             <p>Starts continuous scanning in the background (every 5 seconds), logging new networks to a timestamped CSV
-                file in
-                <code>/data/</code>. Each scan uses the current GPS coordinates.
-            </p>
+                file in <code>/data/</code>. Each scan uses the current GPS coordinates.</p>
+
+            <h3>Browser-Based Wigle Upload</h3>
+            <p>Upload wardrive files directly to Wigle.net from the Files page:</p>
+            <ol>
+                <li>Click the <strong>Upload</strong> button next to any wardrive CSV</li>
+                <li>Your browser downloads the file and uploads to Wigle API</li>
+                <li>On success, the file is automatically deleted</li>
+            </ol>
+            <div class="alert alert-info">
+                💡 <strong>Setup:</strong> Configure your Wigle API Name and Token in Settings.
+            </div>
 
             <h3>CSV Format</h3>
             <p>Logs are saved in Wigle-compatible format:</p>
             <pre><code>MAC,SSID,AuthMode,FirstSeen,Channel,RSSI,Lat,Lon,Alt,Accuracy,Type</code></pre>
-
-            <div class="alert alert-info">
-                💡 <strong>Tip:</strong> Use the File Explorer to download your wardrive logs for uploading to
-                Wigle.net.
-            </div>
         </div>
 
         <!-- Files -->
         <div class="card">
             <h2>📁 File Explorer</h2>
-            <p>Browse, download, and delete files from the device's <code>/data/</code> directory.</p>
+            <p>Browse, download, upload, and delete files from the device's <code>/data/</code> directory.</p>
 
             <h3>Download Files</h3>
             <p>Click the "DL" button to download any file from the device (wardrive logs, etc.).</p>
+
+            <h3>Upload to Wigle</h3>
+            <p>Wardrive CSV files have an "Upload" button that uploads directly to Wigle.net through your browser. The
+                file is automatically deleted on successful upload.</p>
 
             <h3>Delete Files</h3>
             <p>Remove files using the "Del" button. Wardrive CSV files can be deleted immediately; other files will

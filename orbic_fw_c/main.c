@@ -15,6 +15,8 @@
 
 #include "gps.h"
 #include "wifi.h"
+#include "wigle.h"
+#include "log.h"
 
 #define PORT 8443  // HTTPS port (non-standard to avoid Verizon captive portal)
 #define BUFFER_SIZE 8192
@@ -302,8 +304,10 @@ void handle_client(br_sslio_context *ioc) {
         if (strstr(qm, "page=tools")) strcpy(page, "tools");
         if (strstr(qm, "page=gps")) strcpy(page, "gps");
         if (strstr(qm, "page=wardrive")) strcpy(page, "wardrive");
-
         if (strstr(qm, "page=files")) strcpy(page, "files");
+        if (strstr(qm, "page=scan")) strcpy(page, "scan");
+        if (strstr(qm, "page=settings")) strcpy(page, "settings");
+        if (strstr(qm, "page=log")) strcpy(page, "log");
         
         char *cmd_ptr = strstr(qm, "cmd=");
         if (cmd_ptr) url_decode(at_cmd, cmd_ptr + 4);
@@ -358,7 +362,11 @@ void handle_client(br_sslio_context *ioc) {
     
     int o = 0;
     
-    // Header & CSS
+    // Load config for auto-GPS token
+    AppConfig cfg;
+    config_load(&cfg);
+    
+    // Header & CSS with Auto-GPS Script
     o += sprintf(body+o, "<html><head><meta charset='UTF-8'><title>DagShell</title>"
         "<style>"
         "@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');"
@@ -375,8 +383,41 @@ void handle_client(br_sslio_context *ioc) {
         "button:hover{background:#0f0;color:#000;}"
         "pre{background:#000;border-left:3px solid #0f0;padding:10px;overflow-x:auto;}"
         ".warn{color:#ff4444;border-color:#ff4444;}"
-        "</style></head><body><div class='scan'></div>"
-        "<div style='text-align:center'><pre class='logo'>"
+        "#gps-ind{position:fixed;bottom:10px;right:10px;padding:5px 10px;font-size:10px;background:#001100;border:1px solid #004400;z-index:1000;}"
+        "</style>"
+        "<script>"
+        "var _t='%s',_wn='%s',_wt='%s';"
+        "function _gps(){"
+        "  var i=document.getElementById('gps-ind');"
+        "  fetch('/?cmd=gps_json').then(r=>r.json()).then(function(d){"
+        "    if(d.has_fix){i.innerHTML='📍 '+d.lat.substring(0,8)+','+d.lon.substring(0,9);i.style.borderColor='#0f0';return;}"
+        "    if(!_t||!d.cell||!d.cell.mcc){i.innerHTML='📍 No fix';i.style.borderColor='#f00';return;}"
+        "    var c=d.cell,lac=parseInt(c.lac,16),cid=parseInt(c.cid,16);"
+        "    i.innerHTML='📍 ...';i.style.borderColor='#ff0';"
+        "    fetch('https://opencellid.org/cell/get?key='+_t+'&mcc='+c.mcc+'&mnc='+c.mnc+'&lac='+lac+'&cellid='+cid+'&format=json').then(r=>r.json()).then(function(r){"
+        "      if(r.lat&&r.lon){fetch('/?set_gps='+r.lat.toFixed(6)+','+r.lon.toFixed(6));i.innerHTML='📍 '+r.lat.toFixed(4)+','+r.lon.toFixed(4);i.style.borderColor='#0f0';}"
+        "      else{i.innerHTML='📍 Not found';i.style.borderColor='#f00';}"
+        "    }).catch(function(){i.innerHTML='📍 API err';i.style.borderColor='#f00';});"
+        "  }).catch(function(){});"
+        "}"
+        "function wigleUpload(f){"
+        "  if(!_wn||!_wt){alert('No Wigle credentials. Configure in Settings.');return;}"
+        "  var btn=event.target;btn.disabled=true;btn.innerHTML='...';"
+        "  fetch('/download?file='+f).then(r=>r.blob()).then(function(blob){"
+        "    var fd=new FormData();fd.append('file',blob,f.split('/').pop());"
+        "    fetch('https://api.wigle.net/api/v2/file/upload',{"
+        "      method:'POST',headers:{'Authorization':'Basic '+btoa(_wn+':'+_wt)},body:fd"
+        "    }).then(r=>r.json()).then(function(j){"
+        "      if(j.success){alert('Upload OK! Deleting...');fetch('/?page=files&delete='+f);location.reload();}"
+        "      else{alert('Upload failed: '+(j.message||'Unknown'));btn.disabled=false;btn.innerHTML='Upload';}"
+        "    }).catch(function(e){alert('Error: '+e);btn.disabled=false;btn.innerHTML='Upload';});"
+        "  });"
+        "}"
+        "setInterval(_gps,30000);setTimeout(_gps,2000);"
+        "</script>"
+        "</head><body><div class='scan'></div><div id='gps-ind'>📍</div>", 
+        cfg.opencellid_token, cfg.wigle_api_name, cfg.wigle_api_token);
+    o += sprintf(body+o, "<div style='text-align:center'><pre class='logo'>"
         " ____             ____  _          _ _ \n"
         "|  _ \\  __ _  __ / ___|| |__   ___| | |\n"
         "| | | |/ _` |/ _\\\\___ \\| '_ \\ / _ \\ | |\n"
@@ -395,13 +436,19 @@ void handle_client(br_sslio_context *ioc) {
         "<a href='/?page=tools' class='%s'>TOOLS</a>"
         "<a href='/?page=gps' class='%s'>GPS</a>"
         "<a href='/?page=wardrive' class='%s'>WARDRIVE</a>"
+        "<a href='/?page=scan' class='%s'>SCAN</a>"
         "<a href='/?page=files' class='%s'>FILES</a>"
+        "<a href='/?page=log' class='%s'>LOG</a>"
+        "<a href='/?page=settings' class='%s'>SETTINGS</a>"
         "</div>",
         strcmp(page,"home")==0?"active":"", strcmp(page,"net")==0?"active":"",
         strcmp(page,"privacy")==0?"active":"", strcmp(page,"sms")==0?"active":"",
         strcmp(page,"tools")==0?"active":"", strcmp(page,"gps")==0?"active":"",
         strcmp(page,"wardrive")==0?"active":"",
-        strcmp(page,"files")==0?"active":"");
+        strcmp(page,"scan")==0?"active":"",
+        strcmp(page,"files")==0?"active":"",
+        strcmp(page,"log")==0?"active":"",
+        strcmp(page,"settings")==0?"active":"");
 
     // --- PAGE LOGIC ---
     if (strcmp(page, "home") == 0) {
@@ -555,38 +602,57 @@ void handle_client(br_sslio_context *ioc) {
         gps_update(); 
         char status_html[512]; 
         gps_get_status_html(status_html, sizeof(status_html));
+        
+        // Get OpenCellID token for browser lookup
+        AppConfig cfg;
+        config_load(&cfg);
+        
         o += sprintf(body+o, "<div class='card'><h2>📍 GPS Tracker</h2>"
             "<div id='gps-status'>%s</div>"
             "<div id='browser-gps'></div>"
-            "<button onclick='updateGPS()' style='margin-top:10px'>Update GPS</button>"
+            "<button onclick='updateGPS()' style='margin-top:10px'>Update GPS</button> "
+            "<button onclick='cellLookup()'>Cell Tower Lookup</button>"
             "<script>"
-            "function sendGPS(lat,lon){"
+            "var cellToken='%s';"
+            "function sendGPS(lat,lon,src){"
             "  var el=document.getElementById('browser-gps');"
             "  fetch('/?set_gps='+lat+','+lon).then(function(){"
-            "    el.innerHTML='<p style=\"color:#0f0\">GPS sent: '+lat+','+lon+'</p>';"
+            "    el.innerHTML='<p style=\"color:#0f0\">GPS set: '+lat+','+lon+' ('+src+')</p>';"
             "    sessionStorage.setItem('gps_sent','1');"
             "  });"
             "}"
             "function updateGPS(){"
             "  var el=document.getElementById('browser-gps');"
-            "  if(!navigator.geolocation){el.innerHTML='<p>Geolocation not supported</p>';return;}"
+            "  if(!navigator.geolocation){cellLookup();return;}"
             "  el.innerHTML='<p style=\"color:#0ff\">Requesting GPS...</p>';"
             "  navigator.geolocation.getCurrentPosition("
-            "    function(pos){sendGPS(pos.coords.latitude.toFixed(6),pos.coords.longitude.toFixed(6));},"
+            "    function(pos){sendGPS(pos.coords.latitude.toFixed(6),pos.coords.longitude.toFixed(6),'Browser');},"
             "    function(err){"
-            "      el.innerHTML='<p style=\"color:#f66\">'+err.message+'</p>'+"
-            "        '<div style=\"background:#111;padding:10px;margin:10px 0;font-size:11px\">'+"
-            "        '<b>Chrome Fix:</b><br>1. Open chrome://flags<br>'+"
-            "        '2. Search: insecure origins<br>'+"
-            "        '3. Add: http://192.168.1.1:8081<br>'+"
-            "        '4. Restart Chrome</div>';"
+            "      el.innerHTML='<p style=\"color:#f66\">'+err.message+'</p><p>Trying cell tower...</p>';"
+            "      cellLookup();"
             "    },{timeout:10000}"
             "  );"
+            "}"
+            "function cellLookup(){"
+            "  var el=document.getElementById('browser-gps');"
+            "  if(!cellToken){el.innerHTML='<p style=\"color:#f66\">No OpenCellID token configured</p>';return;}"
+            "  el.innerHTML='<p style=\"color:#0ff\">Fetching cell info...</p>';"
+            "  fetch('/?cmd=gps_json').then(r=>r.json()).then(function(d){"
+            "    if(!d.cell||!d.cell.mcc){el.innerHTML='<p style=\"color:#f66\">No cell info</p>';return;}"
+            "    var c=d.cell;"
+            "    var lac=parseInt(c.lac,16),cid=parseInt(c.cid,16);"
+            "    el.innerHTML='<p>Cell: MCC='+c.mcc+' MNC='+c.mnc+' LAC='+lac+' CID='+cid+'</p><p style=\"color:#0ff\">Calling OpenCellID...</p>';"
+            "    var url='https://opencellid.org/cell/get?key='+cellToken+'&mcc='+c.mcc+'&mnc='+c.mnc+'&lac='+lac+'&cellid='+cid+'&format=json';"
+            "    fetch(url).then(r=>r.json()).then(function(r){"
+            "      if(r.lat&&r.lon){sendGPS(r.lat.toFixed(6),r.lon.toFixed(6),'Cell');}"
+            "      else{el.innerHTML='<p style=\"color:#f66\">Cell not in database</p>';}"
+            "    }).catch(function(e){el.innerHTML='<p style=\"color:#f66\">API error: '+e+'</p>';});"
+            "  });"
             "}"
             "if(!sessionStorage.getItem('gps_sent')){updateGPS();}"
             "else{document.getElementById('browser-gps').innerHTML='<p style=\"color:#888\">GPS active this session</p>';}"
             "</script>"
-            "</div>", status_html);
+            "</div>", status_html, cfg.opencellid_token);
     }
     else if (strcmp(page, "wardrive") == 0) {
         char res[8192]="";
@@ -651,8 +717,6 @@ void handle_client(br_sslio_context *ioc) {
             strcpy(res,"Logged to new file."); 
         }
         if (strstr(buffer,"action=start")) { wifi_start_wardrive(); strcpy(res,"Loop Started."); }
-        if (strstr(buffer,"action=stop")) { wifi_stop_wardrive(); strcpy(res,"Loop Stopped."); }
-        
         o += sprintf(body+o, "<div class='card'><h2>Wardriver</h2>"
             "<p>Status: <b>%s</b></p>"
             "<p>GPS: <b style='color:%s'>%s, %s</b> %s</p>"
@@ -666,6 +730,119 @@ void handle_client(br_sslio_context *ioc) {
             gps_lat, gps_lon,
             has_gps ? "" : "<a href='/?page=gps'>(Set GPS)</a>",
             res);
+    }
+    
+    else if (strcmp(page, "scan") == 0) {
+        // --- SCAN Logic ---
+        char details_card[4096] = "";
+        char scan_table[16384] = "";
+        
+        // --- Details View ---
+        if (strstr(buffer, "view=details")) {
+            char bssid[32]={0}, ssid[128]={0}, enc[32]={0}, raw_ssid[128]={0};
+            int rssi=0, chan=0, freq=0, wps=0;
+            
+            // Extract params
+            char *p = strstr(buffer, "bssid="); if(p){ char *e=strchr(p,'&'); if(!e)e=strchr(p,' '); if(!e)e=buffer+strlen(buffer); strncpy(bssid,p+6,e-(p+6)); }
+            p = strstr(buffer, "ssid="); if(p){ char *e=strchr(p,'&'); if(!e)e=strchr(p,' '); if(!e)e=buffer+strlen(buffer); strncpy(raw_ssid,p+5,e-(p+5)); url_decode(ssid,raw_ssid); }
+            p = strstr(buffer, "rssi="); if(p) rssi=atoi(p+5);
+            p = strstr(buffer, "chan="); if(p) chan=atoi(p+5);
+            p = strstr(buffer, "freq="); if(p) freq=atoi(p+5);
+            p = strstr(buffer, "wps="); if(p) wps=atoi(p+4);
+            p = strstr(buffer, "enc="); if(p){ char *e=strchr(p,'&'); if(!e)e=strchr(p,' '); if(!e)e=buffer+strlen(buffer); strncpy(enc,p+4,e-(p+4)); }
+
+            // Handle Connect Action
+            char connect_msg[128] = "";
+            if (strstr(buffer, "action=connect")) {
+                char password[128] = {0};
+                char *pw_ptr = strstr(buffer, "password=");
+                if (pw_ptr) {
+                    pw_ptr += 9;
+                    char *end = strchr(pw_ptr, '&'); if(!end) end = strchr(pw_ptr, ' ');
+                    if (end && (end - pw_ptr) < 128) {
+                        char raw_pw[128];
+                        strncpy(raw_pw, pw_ptr, end - pw_ptr);
+                        raw_pw[end - pw_ptr] = 0;
+                        url_decode(password, raw_pw);
+                    }
+                }
+                wifi_connect(ssid, password);
+                strcpy(connect_msg, "Connecting...");
+            }
+
+            snprintf(details_card, sizeof(details_card), 
+                "<div class='card'><h2>Network Details</h2>"
+                "<p style='color:#f66'>%s</p>"
+                "<table>"
+                "<tr><td><b>SSID:</b></td><td>%s</td></tr>"
+                "<tr><td><b>BSSID:</b></td><td>%s</td></tr>"
+                "<tr><td><b>Signal:</b></td><td>%d dBm</td></tr>"
+                "<tr><td><b>Channel:</b></td><td>%d (%d MHz)</td></tr>"
+                "<tr><td><b>Security:</b></td><td>%s</td></tr>"
+                "<tr><td><b>WPS:</b></td><td>%s</td></tr>"
+                "</table><br>"
+                "<form action='/' method='GET'>"
+                "<input type='hidden' name='page' value='scan'>"
+                "<input type='hidden' name='action' value='connect'>"
+                "<input type='hidden' name='ssid' value='%s'>"
+                "<input type='text' name='password' placeholder='Password (leave empty if open)' style='width:200px;'><br><br>"
+                "<button type='submit'>Connect to Network</button>"
+                "</form>"
+                "<br><a href='/?page=scan&action=rescan'><button>Back to Scan</button></a></div>",
+                connect_msg,
+                ssid, bssid, rssi, chan, freq, enc, wps ? "YES" : "NO",
+                ssid);
+        }
+        
+        // --- Scan List ---
+        // If not details, or if requested explicitly
+        if (!details_card[0]) {
+            o += sprintf(body+o, "<div class='card'><h2>Scanner</h2>"
+                "<a href='/?page=scan&action=rescan'><button>Scan Networks</button></a><br><br>");
+                
+            if (strstr(buffer, "action=rescan")) {
+                char json[16384];
+                wifi_scan_json(json, sizeof(json));
+                
+                o += sprintf(body+o, "<table style='width:100%%;border-collapse:collapse;font-size:12px;'>"
+                    "<tr style='border-bottom:1px solid #0f0;text-align:left;'><th>SSID</th><th>Ch</th><th>Sig</th><th>Sec</th><th>Action</th></tr>");
+
+                char *p = json;
+                while ((p = strstr(p, "\"bssid\":\"")) != NULL) {
+                    char bssid[20]="", ssid[64]="", enc[16]="";
+                    int rssi=0, freq=0, chan=0, wps=0;
+                    
+                    p += 9;
+                    char *e = strchr(p, '"');
+                    if (e && (e-p) < 20) { strncpy(bssid, p, e-p); bssid[e-p]=0; }
+                    
+                    char *sp = strstr(p, "\"ssid\":\"");
+                    if (sp) { sp += 8; e = strchr(sp, '"'); if (e && (e-sp) < 64) { strncpy(ssid, sp, e-sp); ssid[e-sp]=0; } }
+                    
+                    char *rp = strstr(p, "\"rssi\":"); if (rp) rssi = atoi(rp + 7);
+                    char *ep = strstr(p, "\"enc\":\""); if (ep) { ep += 7; e = strchr(ep, '"'); if (e && (e-ep) < 16) { strncpy(enc, ep, e-ep); enc[e-ep]=0; } }
+                     
+                    char *fp = strstr(p, "\"freq\":"); if (fp) freq = atoi(fp + 7);
+                    char *cp = strstr(p, "\"chan\":"); if (cp) chan = atoi(cp + 7);
+                    char *wp = strstr(p, "\"wps\":"); if (wp) wps = atoi(wp + 6);
+
+                    o += sprintf(body+o, 
+                        "<tr style='border-bottom:1px solid #003300;'>"
+                        "<td style='padding:5px;'>%s</td><td>%d</td><td>%d</td><td>%s</td>"
+                        "<td><a href='/?page=scan&view=details&bssid=%s&ssid=%s&rssi=%d&chan=%d&freq=%d&enc=%s&wps=%d'>"
+                        "<button style='padding:2px 5px;font-size:10px;'>Select</button></a></td></tr>",
+                        ssid[0]?ssid:"(hidden)", chan, rssi, enc,
+                        bssid, ssid, rssi, chan, freq, enc, wps);
+                    p++;
+                }
+                o += sprintf(body+o, "</table>");
+            } else {
+                o += sprintf(body+o, "<p>Click Scan to search for networks.</p>");
+            }
+            o += sprintf(body+o, "</div>");
+        } else {
+            o += sprintf(body+o, "%s", details_card);
+        }
     }
 
     else if (strcmp(page, "files") == 0) {
@@ -719,12 +896,13 @@ void handle_client(br_sslio_context *ioc) {
                     int is_wardrive = (strstr(name, "wardrive") != NULL && strstr(name, ".csv") != NULL);
                     
                     if (is_wardrive) {
-                        // Wardrive files - direct delete
+                        // Wardrive files - direct delete + Upload to Wigle (via browser)
                         o += sprintf(body+o, 
                             "<tr><td>%s</td><td>%ld</td><td>"
                             "<a href='/download?file=/data/%s'><button>DL</button></a> "
+                            "<button style='background:#050' onclick=\"wigleUpload('/data/%s')\">Upload</button> "
                             "<a href='/?page=files&delete=/data/%s'><button>Del</button></a></td></tr>",
-                            name, size, name, name);
+                            name, size, name, name, name);
                     } else {
                         // Non-wardrive files - delete with JS confirmation
                         o += sprintf(body+o, 
@@ -742,6 +920,140 @@ void handle_client(br_sslio_context *ioc) {
         }
         
         o += sprintf(body+o, "</div>");
+        
+        // Handle Upload Action
+        char *upload_ptr = strstr(buffer, "upload=");
+        if (upload_ptr) {
+            char raw_file[256] = {0}, filepath[256] = {0};
+            char *end = strchr(upload_ptr + 7, ' ');
+            if (!end) end = strchr(upload_ptr + 7, '&');
+            if (!end) end = upload_ptr + 7 + strlen(upload_ptr + 7);
+            if ((end - (upload_ptr + 7)) < 255) {
+                strncpy(raw_file, upload_ptr + 7, end - (upload_ptr + 7));
+                url_decode(filepath, raw_file);
+                
+                int result = wigle_upload(filepath);
+                if (result == 0) {
+                    o += sprintf(body+o, "<p style='color:#0f0'>Upload Successful! Deleting file...</p>");
+                    unlink(filepath);
+                } else if (result == -1) {
+                    o += sprintf(body+o, "<p class='warn'>No Wigle credentials configured. Go to Settings.</p>");
+                } else if (result == -3) {
+                    o += sprintf(body+o, "<p class='warn'>Wigle Auth Failed. Check your credentials.</p>");
+                } else {
+                    o += sprintf(body+o, "<p class='warn'>Upload Failed (code %d)</p>", result);
+                }
+            }
+        }
+    }
+    
+    // --- SETTINGS PAGE ---
+    else if (strcmp(page, "settings") == 0) {
+        AppConfig cfg;
+        config_load(&cfg);
+        
+        // Handle Save
+        if (strstr(buffer, "action=save_settings")) {
+            char *p;
+            
+            // Wigle API Name
+            p = strstr(buffer, "wigle_api_name=");
+            if (p) { p += 15; char *end = strchr(p, '&'); if(!end) end = strchr(p, ' '); if(!end) end = p + strlen(p);
+                if (end && (end - p) < 128) { char tmp[128]; strncpy(tmp, p, end-p); tmp[end-p]=0; url_decode(cfg.wigle_api_name, tmp); } }
+            
+            // Wigle API Token
+            p = strstr(buffer, "wigle_api_token=");
+            if (p) { p += 16; char *end = strchr(p, '&'); if(!end) end = strchr(p, ' '); if(!end) end = p + strlen(p);
+                if (end && (end - p) < 128) { char tmp[128]; strncpy(tmp, p, end-p); tmp[end-p]=0; url_decode(cfg.wigle_api_token, tmp); } }
+            
+            // OpenCelliD Token
+            p = strstr(buffer, "opencellid_token=");
+            if (p) { p += 17; char *end = strchr(p, '&'); if(!end) end = strchr(p, ' '); if(!end) end = p + strlen(p);
+                if (end && (end - p) < 128) { char tmp[128]; strncpy(tmp, p, end-p); tmp[end-p]=0; url_decode(cfg.opencellid_token, tmp); } }
+            
+            // Toggles (checkbox sends value if checked, absent if not)
+            cfg.auto_upload = strstr(buffer, "auto_upload=1") ? 1 : 0;
+            cfg.auto_wardrive = strstr(buffer, "auto_wardrive=1") ? 1 : 0;
+            
+            config_save(&cfg);
+        }
+        
+        o += sprintf(body+o, "<div class='card'><h2>Settings</h2>"
+            "<form action='/' method='GET'>"
+            "<input type='hidden' name='page' value='settings'>"
+            "<input type='hidden' name='action' value='save_settings'>"
+            
+            "<h3>Wigle.net</h3>"
+            "<label>API Name:</label><br>"
+            "<input type='text' name='wigle_api_name' value='%s' style='width:200px;'><br><br>"
+            "<label>API Token:</label><br>"
+            "<input type='password' name='wigle_api_token' value='%s' style='width:200px;'><br><br>"
+            
+            "<h3>Wardriving</h3>"
+            "<label><input type='checkbox' name='auto_wardrive' value='1' %s> Auto-Start Wardriving on Boot</label><br>"
+            "<p style='font-size:10px;color:#ff0'>⚠️ Requires a browser page open to provide GPS via cell tower lookup</p><br>"
+            
+            "<h3>Cell Tower GPS</h3>"
+            "<label>OpenCelliD Token:</label><br>"
+            "<input type='text' name='opencellid_token' value='%s' style='width:200px;'><br>"
+            "<p style='font-size:10px'>Get free token at opencellid.org</p><br>"
+            
+            "<button type='submit'>Save Settings</button>"
+            "</form>"
+            "</div>",
+            cfg.wigle_api_name, cfg.wigle_api_token,
+            cfg.auto_wardrive ? "checked" : "",
+            cfg.opencellid_token);
+    }
+    
+    // --- LOG PAGE ---
+    else if (strcmp(page, "log") == 0) {
+        // Auto-refresh every 5 seconds
+        o += sprintf(body+o, "<meta http-equiv='refresh' content='5'>");
+        
+        o += sprintf(body+o, "<div class='card'><h2>Live Log</h2>"
+            "<p style='font-size:10px'>Auto-refreshes every 5 seconds</p>"
+            "<a href='/?page=log&clear=1'><button class='warn'>Clear Log</button></a> "
+            "<button onclick='copyLog()'>Copy All</button><br><br>"
+            "<pre id='logcontent' style='background:#000;padding:10px;font-size:11px;height:70vh;overflow-y:scroll;white-space:pre-wrap;word-wrap:break-word;'>");
+        
+        // Handle clear
+        if (strstr(buffer, "clear=1")) {
+            system("echo 'Log cleared.' > /data/dagshell.log");
+        }
+        
+        // Read last 200 lines of log (increased from 50)
+        FILE *fp = popen("tail -n 200 /data/dagshell.log 2>/dev/null", "r");
+        if (fp) {
+            char line[256];
+            while (fgets(line, sizeof(line), fp)) {
+                // HTML escape < and >
+                for (int i = 0; line[i]; i++) {
+                    if (line[i] == '<') o += sprintf(body+o, "&lt;");
+                    else if (line[i] == '>') o += sprintf(body+o, "&gt;");
+                    else body[o++] = line[i];
+                }
+            }
+            pclose(fp);
+        } else {
+            o += sprintf(body+o, "No log file found.");
+        }
+        
+        o += sprintf(body+o, "</pre>"
+            "<script>"
+            "function copyLog(){"
+            "  var t=document.getElementById('logcontent').innerText;"
+            "  navigator.clipboard.writeText(t).then(function(){"
+            "    alert('Log copied to clipboard!');"
+            "  },function(){"
+            "    var ta=document.createElement('textarea');"
+            "    ta.value=t;document.body.appendChild(ta);"
+            "    ta.select();document.execCommand('copy');"
+            "    document.body.removeChild(ta);"
+            "    alert('Log copied!');"
+            "  });"
+            "}"
+            "</script></div>");
     }
     
     strcat(body, "</body></html>");
@@ -763,13 +1075,22 @@ int main(int argc, char *argv[]) {
         wifi_wardrive_process();
         return 0;
     }
-
+    
+    // Check for Auto-Start Wardriving
+    // Note: Wardrive waits for GPS, which requires a browser page open
+    AppConfig cfg;
+    if (config_load(&cfg) == 0 && cfg.auto_wardrive) {
+        printf("Auto-starting wardriving (waiting for GPS from browser)...\n");
+        wifi_start_wardrive();
+    }
+    
     // Initialize BearSSL server
     if (init_ssl_server() < 0) {
         fprintf(stderr, "Failed to initialize SSL. Exiting.\n");
         return 1;
     }
     printf("HTTPS server starting on port %d...\n", PORT);
+    daglog("DagShell server started");
 
     gps_init();
     
@@ -784,6 +1105,9 @@ int main(int argc, char *argv[]) {
     listen(server_fd, 3);
     
     while (1) {
+        // Update GPS (handles cell tower lookup every 30 seconds)
+        gps_update();
+        
         if ((client_fd = accept(server_fd, (struct sockaddr *)&address, &addrlen)) >= 0) {
             // Set socket timeout to prevent blocking on incompatible TLS clients
             struct timeval tv;

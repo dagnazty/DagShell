@@ -11,6 +11,8 @@
 
 A terminal-styled custom firmware for the **Orbic RCL400** hotspot with hacking tools and privacy features.
 
+🌐 **Documentation:** [dagnazty.github.io/DagShell](https://dagnazty.github.io/DagShell)
+
 ## Features
 
 ### 🏠 Dashboard
@@ -37,16 +39,18 @@ A terminal-styled custom firmware for the **Orbic RCL400** hotspot with hacking 
 - **Firewall Manager**: Block/unblock IPs with iptables
 
 ### 📍 GPS Tracker
-- Get GPS from connected devices via browser geolocation
-- Chrome workaround for HTTP geolocation
-- Cell tower backup (MCC/MNC/LAC/CID)
+- **Auto-GPS on every page** - GPS indicator polls every 30 seconds
+- **Cell tower lookup via OpenCellID** - Browser calls API automatically
+- Browser geolocation as primary source
+- File-based GPS sharing between processes
 - JSON API for programmatic access
 
 ### 📶 Wardriver
 - Scan WiFi networks with GPS coordinates
+- **Waits for GPS fix before starting** (no 0,0 entries)
 - Wigle-compatible CSV export
+- **Browser-based Wigle upload** - Upload directly from Files page
 - Continuous loop mode (scans every 5 seconds)
-- Real-time GPS display on wardrive page
 
 ### 📁 File Explorer
 - Browse `/data/` directory

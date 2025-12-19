@@ -10,7 +10,7 @@ if (-not (Test-Path $gccPath)) {
 
 # Compile with BearSSL static library
 # -L. searches current directory for libbearssl.a
-& $gccPath main.c gps.c wifi.c -o orbic_app -I. -L. -lbearssl -static
+& $gccPath main.c gps.c wifi.c wigle.c -o orbic_app -I. -L. -lbearssl -static
 
 if ($?) {
     Write-Host "Build Successful: orbic_app"

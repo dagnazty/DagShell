@@ -10,6 +10,9 @@ void gps_update();
 // Update cell tower info from modem
 void gps_update_cell_info();
 
+// Query OpenCelliD for location based on cell tower
+void gps_update_from_cell();
+
 // Receive GPS coordinates from a connected client browser
 void gps_set_client_location(const char *lat, const char *lon);
 

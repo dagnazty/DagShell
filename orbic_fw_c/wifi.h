@@ -25,4 +25,9 @@ void wifi_clear_seen_bssids();
 // Start new wardrive session (creates timestamped file)
 void wifi_new_session();
 
+// --- Client Connect ---
+int wifi_connect(const char *ssid, const char *password);
+void wifi_disconnect();
+int wifi_is_connected();
+
 #endif
