@@ -1014,6 +1014,7 @@ void handle_client(br_sslio_context *ioc) {
         o += sprintf(body+o, "<div class='card'><h2>Live Log</h2>"
             "<p style='font-size:10px'>Auto-refreshes every 5 seconds</p>"
             "<a href='/?page=log&clear=1'><button class='warn'>Clear Log</button></a> "
+            "<a href='/?page=log&view=boot'><button>Boot Diag</button></a> "
             "<button onclick='copyLog()'>Copy All</button><br><br>"
             "<pre id='logcontent' style='background:#000;padding:10px;font-size:11px;height:70vh;overflow-y:scroll;white-space:pre-wrap;word-wrap:break-word;'>");
         
@@ -1022,8 +1023,19 @@ void handle_client(br_sslio_context *ioc) {
             system("echo 'Log cleared.' > /data/dagshell.log");
         }
         
-        // Read last 200 lines of log (increased from 50)
-        FILE *fp = popen("tail -n 200 /data/dagshell.log 2>/dev/null", "r");
+        // Choose which log to show
+        const char *logfile = "/data/dagshell.log";
+        int max_lines = 200;
+        if (strstr(buffer, "view=boot")) {
+            logfile = "/data/boot_diag.log";
+            max_lines = 500;  // Boot diag is smaller, show more
+            o += sprintf(body+o, "=== BOOT DIAGNOSTICS ===\n\n");
+        }
+        
+        // Read log file (use tail to prevent buffer overflow!)
+        char cmd[128];
+        snprintf(cmd, sizeof(cmd), "tail -n %d %s 2>/dev/null", max_lines, logfile);
+        FILE *fp = popen(cmd, "r");
         if (fp) {
             char line[256];
             while (fgets(line, sizeof(line), fp)) {

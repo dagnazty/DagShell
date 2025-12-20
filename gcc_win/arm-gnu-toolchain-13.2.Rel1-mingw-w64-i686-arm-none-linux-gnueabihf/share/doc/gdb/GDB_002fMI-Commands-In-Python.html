@@ -1,0 +1,216 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Copyright (C) 1988-2023 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Free Software" and "Free Software Needs
+Free Documentation", with the Front-Cover Texts being "A GNU Manual,"
+and with the Back-Cover Texts as in (a) below.
+
+(a) The FSF's Back-Cover Text is: "You are free to copy and modify
+this GNU Manual.  Buying copies from GNU Press supports the FSF in
+developing GNU and promoting software freedom." -->
+<!-- Created by GNU Texinfo 6.7, http://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>GDB/MI Commands In Python (Debugging with GDB)</title>
+
+<meta name="description" content="GDB/MI Commands In Python (Debugging with GDB)">
+<meta name="keywords" content="GDB/MI Commands In Python (Debugging with GDB)">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<link href="index.html" rel="start" title="Top">
+<link href="Concept-Index.html" rel="index" title="Concept Index">
+<link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Python-API.html" rel="up" title="Python API">
+<link href="Parameters-In-Python.html" rel="next" title="Parameters In Python">
+<link href="CLI-Commands-In-Python.html" rel="prev" title="CLI Commands In Python">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.indentedblock {margin-right: 0em}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+kbd {font-style: oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+span.nolinebreak {white-space: nowrap}
+span.roman {font-family: initial; font-weight: normal}
+span.sansserif {font-family: sans-serif; font-weight: normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en">
+<span id="GDB_002fMI-Commands-In-Python"></span><div class="header">
+<p>
+Next: <a href="Parameters-In-Python.html" accesskey="n" rel="next">Parameters In Python</a>, Previous: <a href="CLI-Commands-In-Python.html" accesskey="p" rel="prev">CLI Commands In Python</a>, Up: <a href="Python-API.html" accesskey="u" rel="up">Python API</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<span id="GDB_002fMI-Commands-In-Python-1"></span><h4 class="subsubsection">23.3.2.21 <small>GDB/MI</small> Commands In Python</h4>
+
+<span id="index-MI-commands-in-python"></span>
+<span id="index-commands-in-python_002c-GDB_002fMI"></span>
+<span id="index-python-commands_002c-GDB_002fMI"></span>
+<p>It is possible to add <small>GDB/MI</small> (see <a href="GDB_002fMI.html">GDB/MI</a>) commands
+implemented in Python.  A <small>GDB/MI</small> command is implemented using an
+instance of the <code>gdb.MICommand</code> class, most commonly using a
+subclass.
+</p>
+<dl>
+<dt id="index-MICommand_002e_005f_005finit_005f_005f">Function: <strong>MICommand.__init__</strong> <em>(name)</em></dt>
+<dd><p>The object initializer for <code>MICommand</code> registers the new command
+with <small>GDB</small>.  This initializer is normally invoked from the
+subclass&rsquo; own <code>__init__</code> method.
+</p>
+<p><var>name</var> is the name of the command.  It must be a valid name of a
+<small>GDB/MI</small> command, and in particular must start with a hyphen
+(<code>-</code>).  Reusing the name of a built-in <small>GDB/MI</small> is not
+allowed, and a <code>RuntimeError</code> will be raised.  Using the name
+of an <small>GDB/MI</small> command previously defined in Python is allowed, the
+previous command will be replaced with the new command.
+</p></dd></dl>
+
+<dl>
+<dt id="index-MICommand_002einvoke">Function: <strong>MICommand.invoke</strong> <em>(arguments)</em></dt>
+<dd><p>This method is called by <small>GDB</small> when the new MI command is
+invoked.
+</p>
+<p><var>arguments</var> is a list of strings.  Note, that <code>--thread</code>
+and <code>--frame</code> arguments are handled by <small>GDB</small> itself therefore
+they do not show up in <code>arguments</code>.
+</p>
+<p>If this method raises an exception, then it is turned into a
+<small>GDB/MI</small> <code>^error</code> response.  Only <code>gdb.GdbError</code>
+exceptions (or its sub-classes) should be used for reporting errors to
+users, any other exception type is treated as a failure of the
+<code>invoke</code> method, and the exception will be printed to the error
+stream according to the <kbd>set python print-stack</kbd> setting
+(see <a href="Python-Commands.html#set_005fpython_005fprint_005fstack"><kbd>set python print-stack</kbd></a>).
+</p>
+<p>If this method returns <code>None</code>, then the <small>GDB/MI</small> command will
+return a <code>^done</code> response with no additional values.
+</p>
+<p>Otherwise, the return value must be a dictionary, which is converted
+to a <small>GDB/MI</small> <var>result-record</var> (see <a href="GDB_002fMI-Output-Syntax.html">GDB/MI Output Syntax</a>).
+The keys of this dictionary must be strings, and are used as
+<var>variable</var> names in the <var>result-record</var>, these strings must
+comply with the naming rules detailed below.  The values of this
+dictionary are recursively handled as follows:
+</p>
+<ul>
+<li> If the value is Python sequence or iterator, it is converted to
+<small>GDB/MI</small> <var>list</var> with elements converted recursively.
+
+</li><li> If the value is Python dictionary, it is converted to
+<small>GDB/MI</small> <var>tuple</var>.  Keys in that dictionary must be strings,
+which comply with the <var>variable</var> naming rules detailed below.
+Values are converted recursively.
+
+</li><li> Otherwise, value is first converted to a Python string using
+<code>str ()</code> and then converted to <small>GDB/MI</small> <var>const</var>.
+</li></ul>
+
+<p>The strings used for <var>variable</var> names in the <small>GDB/MI</small> output
+must follow the following rules; the string must be at least one
+character long, the first character must be in the set
+<code>[a-zA-Z]</code>, while every subsequent character must be in the set
+<code>[-_a-zA-Z0-9]</code>.
+</p></dd></dl>
+
+<p>An instance of <code>MICommand</code> has the following attributes:
+</p>
+<dl>
+<dt id="index-MICommand_002ename">Variable: <strong>MICommand.name</strong></dt>
+<dd><p>A string, the name of this <small>GDB/MI</small> command, as was passed to the
+<code>__init__</code> method.  This attribute is read-only.
+</p></dd></dl>
+
+<dl>
+<dt id="index-MICommand_002einstalled">Variable: <strong>MICommand.installed</strong></dt>
+<dd><p>A boolean value indicating if this command is installed ready for a
+user to call from the command line.  Commands are automatically
+installed when they are instantiated, after which this attribute will
+be <code>True</code>.
+</p>
+<p>If later, a new command is created with the same name, then the
+original command will become uninstalled, and this attribute will be
+<code>False</code>.
+</p>
+<p>This attribute is read-write, setting this attribute to <code>False</code>
+will uninstall the command, removing it from the set of available
+commands.  Setting this attribute to <code>True</code> will install the
+command for use.  If there is already a Python command with this name
+installed, the currently installed command will be uninstalled, and
+this command installed in its place.
+</p></dd></dl>
+
+<p>The following code snippet shows how a two trivial MI command can be
+implemented in Python:
+</p>
+<div class="example">
+<pre class="example">class MIEcho(gdb.MICommand):
+    &quot;&quot;&quot;Echo arguments passed to the command.&quot;&quot;&quot;
+
+    def __init__(self, name, mode):
+        self._mode = mode
+        super(MIEcho, self).__init__(name)
+
+    def invoke(self, argv):
+        if self._mode == 'dict':
+            return { 'dict': { 'argv' : argv } }
+        elif self._mode == 'list':
+            return { 'list': argv }
+        else:
+            return { 'string': &quot;, &quot;.join(argv) }
+
+
+MIEcho(&quot;-echo-dict&quot;, &quot;dict&quot;)
+MIEcho(&quot;-echo-list&quot;, &quot;list&quot;)
+MIEcho(&quot;-echo-string&quot;, &quot;string&quot;)
+</pre></div>
+
+<p>The last three lines instantiate the class three times, creating three
+new <small>GDB/MI</small> commands <code>-echo-dict</code>, <code>-echo-list</code>, and
+<code>-echo-string</code>.  Each time a subclass of <code>gdb.MICommand</code> is
+instantiated, the new command is automatically registered with
+<small>GDB</small>.
+</p>
+<p>Depending on how the Python code is read into <small>GDB</small>, you may
+need to import the <code>gdb</code> module explicitly.
+</p>
+<p>The following example shows a <small>GDB</small> session in which the above
+commands have been added:
+</p>
+<div class="example">
+<pre class="example">(gdb)
+-echo-dict abc def ghi
+^done,dict={argv=[&quot;abc&quot;,&quot;def&quot;,&quot;ghi&quot;]}
+(gdb)
+-echo-list abc def ghi
+^done,list=[&quot;abc&quot;,&quot;def&quot;,&quot;ghi&quot;]
+(gdb)
+-echo-string abc def ghi
+^done,string=&quot;abc, def, ghi&quot;
+(gdb)
+</pre></div>
+
+<hr>
+<div class="header">
+<p>
+Next: <a href="Parameters-In-Python.html" accesskey="n" rel="next">Parameters In Python</a>, Previous: <a href="CLI-Commands-In-Python.html" accesskey="p" rel="prev">CLI Commands In Python</a>, Up: <a href="Python-API.html" accesskey="u" rel="up">Python API</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+
+
+
+</body>
+</html>

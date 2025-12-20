@@ -29,7 +29,6 @@ Thumbs.db
 
 # Logs
 *.log
-/gcc_win
 
 # SSL Keys & Certificates (Generated locally)
 *.der

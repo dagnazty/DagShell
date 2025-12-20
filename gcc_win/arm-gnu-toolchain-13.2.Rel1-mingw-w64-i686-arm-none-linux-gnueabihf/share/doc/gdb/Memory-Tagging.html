@@ -1,0 +1,134 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Copyright (C) 1988-2023 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Free Software" and "Free Software Needs
+Free Documentation", with the Front-Cover Texts being "A GNU Manual,"
+and with the Back-Cover Texts as in (a) below.
+
+(a) The FSF's Back-Cover Text is: "You are free to copy and modify
+this GNU Manual.  Buying copies from GNU Press supports the FSF in
+developing GNU and promoting software freedom." -->
+<!-- Created by GNU Texinfo 6.7, http://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Memory Tagging (Debugging with GDB)</title>
+
+<meta name="description" content="Memory Tagging (Debugging with GDB)">
+<meta name="keywords" content="Memory Tagging (Debugging with GDB)">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<link href="index.html" rel="start" title="Top">
+<link href="Concept-Index.html" rel="index" title="Concept Index">
+<link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Data.html" rel="up" title="Data">
+<link href="Auto-Display.html" rel="next" title="Auto Display">
+<link href="Memory.html" rel="prev" title="Memory">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.indentedblock {margin-right: 0em}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+kbd {font-style: oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+span.nolinebreak {white-space: nowrap}
+span.roman {font-family: initial; font-weight: normal}
+span.sansserif {font-family: sans-serif; font-weight: normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en">
+<span id="Memory-Tagging"></span><div class="header">
+<p>
+Next: <a href="Auto-Display.html" accesskey="n" rel="next">Auto Display</a>, Previous: <a href="Memory.html" accesskey="p" rel="prev">Memory</a>, Up: <a href="Data.html" accesskey="u" rel="up">Data</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<span id="Memory-Tagging-1"></span><h3 class="section">10.7 Memory Tagging</h3>
+
+<p>Memory tagging is a memory protection technology that uses a pair of tags to
+validate memory accesses through pointers.  The tags are integer values
+usually comprised of a few bits, depending on the architecture.
+</p>
+<p>There are two types of tags that are used in this setup: logical and
+allocation.  A logical tag is stored in the pointers themselves, usually at the
+higher bits of the pointers.  An allocation tag is the tag associated
+with particular ranges of memory in the physical address space, against which
+the logical tags from pointers are compared.
+</p>
+<p>The pointer tag (logical tag) must match the memory tag (allocation tag)
+for the memory access to be valid.  If the logical tag does not match the
+allocation tag, that will raise a memory violation.
+</p>
+<p>Allocation tags cover multiple contiguous bytes of physical memory.  This
+range of bytes is called a memory tag granule and is architecture-specific.
+For example,  AArch64 has a tag granule of 16 bytes, meaning each allocation
+tag spans 16 bytes of memory.
+</p>
+<p>If the underlying architecture supports memory tagging, like AArch64 MTE
+or SPARC ADI do,  <small>GDB</small> can make use of it to validate pointers
+against memory allocation tags.
+</p>
+<p>The <code>print</code> (see <a href="Data.html">Data</a>) and <code>x</code> (see <a href="Memory.html">Memory</a>) commands will
+display tag information when appropriate, and a command prefix of
+<code>memory-tag</code> gives access to the various memory tagging commands.
+</p>
+<p>The <code>memory-tag</code> commands are the following:
+</p>
+<dl compact="compact">
+<dd><span id="index-memory_002dtag-print_002dlogical_002dtag"></span>
+</dd>
+<dt><code>memory-tag print-logical-tag <var>pointer_expression</var></code></dt>
+<dd><p>Print the logical tag stored in <var>pointer_expression</var>.
+<span id="index-memory_002dtag-with_002dlogical_002dtag"></span>
+</p></dd>
+<dt><code>memory-tag with-logical-tag <var>pointer_expression</var> <var>tag_bytes</var></code></dt>
+<dd><p>Print the pointer given by <var>pointer_expression</var>, augmented with a logical
+tag of <var>tag_bytes</var>.
+<span id="index-memory_002dtag-print_002dallocation_002dtag"></span>
+</p></dd>
+<dt><code>memory-tag print-allocation-tag <var>address_expression</var></code></dt>
+<dd><p>Print the allocation tag associated with the memory address given by
+<var>address_expression</var>.
+<span id="index-memory_002dtag-setatag"></span>
+</p></dd>
+<dt><code>memory-tag setatag <var>starting_address</var> <var>length</var> <var>tag_bytes</var></code></dt>
+<dd><p>Set the allocation tag(s) for memory range <span class="roman">[</span><var>starting_address</var>,
+<var>starting_address</var> + <var>length</var><span class="roman">)</span> to <var>tag_bytes</var>.
+<span id="index-memory_002dtag-check"></span>
+</p></dd>
+<dt><code>memory-tag check <var>pointer_expression</var></code></dt>
+<dd><p>Check if the logical tag in the pointer given by <var>pointer_expression</var>
+matches the allocation tag for the memory referenced by the pointer.
+</p>
+<p>This essentially emulates the hardware validation that is done when tagged
+memory is accessed through a pointer, but does not cause a memory fault as
+it would during hardware validation.
+</p>
+<p>It can be used to inspect potential memory tagging violations in the running
+process, before any faults get triggered.
+</p></dd>
+</dl>
+
+<hr>
+<div class="header">
+<p>
+Next: <a href="Auto-Display.html" accesskey="n" rel="next">Auto Display</a>, Previous: <a href="Memory.html" accesskey="p" rel="prev">Memory</a>, Up: <a href="Data.html" accesskey="u" rel="up">Data</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+
+
+
+</body>
+</html>

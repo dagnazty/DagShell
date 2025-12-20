@@ -1,0 +1,198 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Copyright (C) 1988-2023 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Free Software" and "Free Software Needs
+Free Documentation", with the Front-Cover Texts being "A GNU Manual,"
+and with the Back-Cover Texts as in (a) below.
+
+(a) The FSF's Back-Cover Text is: "You are free to copy and modify
+this GNU Manual.  Buying copies from GNU Press supports the FSF in
+developing GNU and promoting software freedom." -->
+<!-- Created by GNU Texinfo 6.7, http://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Connections In Python (Debugging with GDB)</title>
+
+<meta name="description" content="Connections In Python (Debugging with GDB)">
+<meta name="keywords" content="Connections In Python (Debugging with GDB)">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<link href="index.html" rel="start" title="Top">
+<link href="Concept-Index.html" rel="index" title="Concept Index">
+<link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Python-API.html" rel="up" title="Python API">
+<link href="TUI-Windows-In-Python.html" rel="next" title="TUI Windows In Python">
+<link href="Registers-In-Python.html" rel="prev" title="Registers In Python">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.indentedblock {margin-right: 0em}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+kbd {font-style: oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+span.nolinebreak {white-space: nowrap}
+span.roman {font-family: initial; font-weight: normal}
+span.sansserif {font-family: sans-serif; font-weight: normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en">
+<span id="Connections-In-Python"></span><div class="header">
+<p>
+Next: <a href="TUI-Windows-In-Python.html" accesskey="n" rel="next">TUI Windows In Python</a>, Previous: <a href="Registers-In-Python.html" accesskey="p" rel="prev">Registers In Python</a>, Up: <a href="Python-API.html" accesskey="u" rel="up">Python API</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<span id="Connections-In-Python-1"></span><h4 class="subsubsection">23.3.2.36 Connections In Python</h4>
+<span id="index-connections-in-python"></span>
+<p><small>GDB</small> lets you run and debug multiple programs in a single
+session.  Each program being debugged has a connection, the connection
+describes how <small>GDB</small> controls the program being debugged.
+Examples of different connection types are &lsquo;<samp>native</samp>&rsquo; and
+&lsquo;<samp>remote</samp>&rsquo;.  See <a href="Inferiors-Connections-and-Programs.html">Inferiors Connections and Programs</a>.
+</p>
+<p>Connections in <small>GDB</small> are represented as instances of
+<code>gdb.TargetConnection</code>, or as one of its sub-classes.  To get a
+list of all connections use <code>gdb.connections</code>
+(see <a href="Basic-Python.html#gdbpy_005fconnections">gdb.connections</a>).
+</p>
+<p>To get the connection for a single <code>gdb.Inferior</code> read its
+<code>gdb.Inferior.connection</code> attribute
+(see <a href="Inferiors-In-Python.html#gdbpy_005finferior_005fconnection">gdb.Inferior.connection</a>).
+</p>
+<p>Currently there is only a single sub-class of
+<code>gdb.TargetConnection</code>, <code>gdb.RemoteTargetConnection</code>,
+however, additional sub-classes may be added in future releases of
+<small>GDB</small>.  As a result you should avoid writing code like:
+</p>
+<div class="example">
+<pre class="example">conn = gdb.selected_inferior().connection
+if type(conn) is gdb.RemoteTargetConnection:
+  print(&quot;This is a remote target connection&quot;)
+</pre></div>
+
+<p>as this may fail when more connection types are added.  Instead, you
+should write:
+</p>
+<div class="example">
+<pre class="example">conn = gdb.selected_inferior().connection
+if isinstance(conn, gdb.RemoteTargetConnection):
+  print(&quot;This is a remote target connection&quot;)
+</pre></div>
+
+<p>A <code>gdb.TargetConnection</code> has the following method:
+</p>
+<dl>
+<dt id="index-TargetConnection_002eis_005fvalid">Function: <strong>TargetConnection.is_valid</strong> <em>()</em></dt>
+<dd><p>Return <code>True</code> if the <code>gdb.TargetConnection</code> object is valid,
+<code>False</code> if not.  A <code>gdb.TargetConnection</code> will become
+invalid if the connection no longer exists within <small>GDB</small>, this
+might happen when no inferiors are using the connection, but could be
+delayed until the user replaces the current target.
+</p>
+<p>Reading any of the <code>gdb.TargetConnection</code> properties will throw
+an exception if the connection is invalid.
+</p></dd></dl>
+
+<p>A <code>gdb.TargetConnection</code> has the following read-only properties:
+</p>
+<dl>
+<dt id="index-TargetConnection_002enum">Variable: <strong>TargetConnection.num</strong></dt>
+<dd><p>An integer assigned by <small>GDB</small> to uniquely identify this
+connection.  This is the same value as displayed in the &lsquo;<samp>Num</samp>&rsquo;
+column of the <code>info connections</code> command output (see <a href="Inferiors-Connections-and-Programs.html">info connections</a>).
+</p></dd></dl>
+
+<dl>
+<dt id="index-TargetConnection_002etype">Variable: <strong>TargetConnection.type</strong></dt>
+<dd><p>A string that describes what type of connection this is.  This string
+will be one of the valid names that can be passed to the <code>target</code>
+command (see <a href="Target-Commands.html">target command</a>).
+</p></dd></dl>
+
+<dl>
+<dt id="index-TargetConnection_002edescription">Variable: <strong>TargetConnection.description</strong></dt>
+<dd><p>A string that gives a short description of this target type.  This is
+the same string that is displayed in the &lsquo;<samp>Description</samp>&rsquo; column of
+the <code>info connection</code> command output (see <a href="Inferiors-Connections-and-Programs.html">info connections</a>).
+</p></dd></dl>
+
+<dl>
+<dt id="index-TargetConnection_002edetails">Variable: <strong>TargetConnection.details</strong></dt>
+<dd><p>An optional string that gives additional information about this
+connection.  This attribute can be <code>None</code> if there are no
+additional details for this connection.
+</p>
+<p>An example of a connection type that might have additional details is
+the &lsquo;<samp>remote</samp>&rsquo; connection, in this case the details string can
+contain the &lsquo;<samp><var>hostname</var>:<var>port</var></samp>&rsquo; that was used to connect
+to the remote target.
+</p></dd></dl>
+
+<p>The <code>gdb.RemoteTargetConnection</code> class is a sub-class of
+<code>gdb.TargetConnection</code>, and is used to represent &lsquo;<samp>remote</samp>&rsquo;
+and &lsquo;<samp>extended-remote</samp>&rsquo; connections.  In addition to the attributes
+and methods available from the <code>gdb.TargetConnection</code> base class,
+a <code>gdb.RemoteTargetConnection</code> has the following method:
+</p>
+<span id="index-maint-packet"></span>
+<dl>
+<dt id="index-RemoteTargetConnection_002esend_005fpacket">Function: <strong>RemoteTargetConnection.send_packet</strong> <em>(<var>packet</var>)</em></dt>
+<dd><p>This method sends <var>packet</var> to the remote target and returns the
+response.  The <var>packet</var> should either be a <code>bytes</code> object, or
+a <code>Unicode</code> string.
+</p>
+<p>If <var>packet</var> is a <code>Unicode</code> string, then the string is encoded
+to a <code>bytes</code> object using the <small>ASCII</small> codec.  If the string
+can&rsquo;t be encoded then an <code>UnicodeError</code> is raised.
+</p>
+<p>If <var>packet</var> is not a <code>bytes</code> object, or a <code>Unicode</code>
+string, then a <code>TypeError</code> is raised.  If <var>packet</var> is empty
+then a <code>ValueError</code> is raised.
+</p>
+<p>The response is returned as a <code>bytes</code> object.  For Python 3 if it
+is known that the response can be represented as a string then this
+can be decoded from the buffer.  For example, if it is known that the
+response is an <small>ASCII</small> string:
+</p>
+<div class="example">
+<pre class="example">remote_connection.send_packet(&quot;some_packet&quot;).decode(&quot;ascii&quot;)
+</pre></div>
+
+<p>In Python 2 <code>bytes</code> and <code>str</code> are aliases, so the result is
+already a string, if the response includes non-printable characters,
+or null characters, then these will be present in the result, care
+should be taken when processing the result to handle this case.
+</p>
+<p>The prefix, suffix, and checksum (as required by the remote serial
+protocol) are automatically added to the outgoing packet, and removed
+from the incoming packet before the contents of the reply are
+returned.
+</p>
+<p>This is equivalent to the <code>maintenance packet</code> command
+(see <a href="Maintenance-Commands.html#maint-packet">maint packet</a>).
+</p></dd></dl>
+
+<hr>
+<div class="header">
+<p>
+Next: <a href="TUI-Windows-In-Python.html" accesskey="n" rel="next">TUI Windows In Python</a>, Previous: <a href="Registers-In-Python.html" accesskey="p" rel="prev">Registers In Python</a>, Up: <a href="Python-API.html" accesskey="u" rel="up">Python API</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+
+
+
+</body>
+</html>

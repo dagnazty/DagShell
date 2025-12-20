@@ -1,0 +1,156 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Copyright (C) 1988-2023 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Free Software" and "Free Software Needs
+Free Documentation", with the Front-Cover Texts being "A GNU Manual,"
+and with the Back-Cover Texts as in (a) below.
+
+(a) The FSF's Back-Cover Text is: "You are free to copy and modify
+this GNU Manual.  Buying copies from GNU Press supports the FSF in
+developing GNU and promoting software freedom." -->
+<!-- Created by GNU Texinfo 6.7, http://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Fortran Intrinsics (Debugging with GDB)</title>
+
+<meta name="description" content="Fortran Intrinsics (Debugging with GDB)">
+<meta name="keywords" content="Fortran Intrinsics (Debugging with GDB)">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<link href="index.html" rel="start" title="Top">
+<link href="Concept-Index.html" rel="index" title="Concept Index">
+<link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Fortran.html" rel="up" title="Fortran">
+<link href="Special-Fortran-Commands.html" rel="next" title="Special Fortran Commands">
+<link href="Fortran-Operators.html" rel="prev" title="Fortran Operators">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.indentedblock {margin-right: 0em}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+kbd {font-style: oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+span.nolinebreak {white-space: nowrap}
+span.roman {font-family: initial; font-weight: normal}
+span.sansserif {font-family: sans-serif; font-weight: normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en">
+<span id="Fortran-Intrinsics"></span><div class="header">
+<p>
+Next: <a href="Special-Fortran-Commands.html" accesskey="n" rel="next">Special Fortran Commands</a>, Previous: <a href="Fortran-Operators.html" accesskey="p" rel="prev">Fortran Operators</a>, Up: <a href="Fortran.html" accesskey="u" rel="up">Fortran</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<span id="Fortran-Intrinsics-1"></span><h4 class="subsubsection">15.4.6.3 Fortran Intrinsics</h4>
+
+<span id="index-Fortran-Intrinsics"></span>
+
+<p>Fortran provides a large set of intrinsic procedures.  <small>GDB</small> implements
+an incomplete subset of those procedures and their overloads.  Some of these
+procedures take an optional <code>KIND</code> parameter, see <a href="Fortran-Types.html">Fortran Types</a>.
+</p>
+<dl compact="compact">
+<dt><code>ABS(<var>a</var>)</code></dt>
+<dd><p>Computes the absolute value of its argument <var>a</var>.  Currently not supported
+for <code>Complex</code> arguments.
+</p>
+</dd>
+<dt><code>ALLOCATE(<var>array</var>)</code></dt>
+<dd><p>Returns whether <var>array</var> is allocated or not.
+</p>
+</dd>
+<dt><code>ASSOCIATED(<var>pointer</var> [, <var>target</var>])</code></dt>
+<dd><p>Returns the association status of the pointer <var>pointer</var> or, if <var>target</var>
+is present, whether <var>pointer</var> is associated with the target <var>target</var>.
+</p>
+</dd>
+<dt><code>CEILING(<var>a</var> [, <var>kind</var>])</code></dt>
+<dd><p>Computes the least integer greater than or equal to <var>a</var>.  The optional
+parameter <var>kind</var> specifies the kind of the return type
+<code>Integer(<var>kind</var>)</code>.
+</p>
+</dd>
+<dt><code>CMPLX(<var>x</var> [, <var>y</var> [, <var>kind</var>]])</code></dt>
+<dd><p>Returns a complex number where <var>x</var> is converted to the real component.  If
+<var>y</var> is present it is converted to the imaginary component.  If <var>y</var> is
+not present then the imaginary component is set to <code>0.0</code> except if <var>x</var>
+itself is of <code>Complex</code> type.  The optional parameter <var>kind</var> specifies
+the kind of the return type <code>Complex(<var>kind</var>)</code>.
+</p>
+</dd>
+<dt><code>FLOOR(<var>a</var> [, <var>kind</var>])</code></dt>
+<dd><p>Computes the greatest integer less than or equal to <var>a</var>.  The optional
+parameter <var>kind</var> specifies the kind of the return type
+<code>Integer(<var>kind</var>)</code>.
+</p>
+</dd>
+<dt><code>KIND(<var>a</var>)</code></dt>
+<dd><p>Returns the kind value of the argument <var>a</var>, see <a href="Fortran-Types.html">Fortran Types</a>.
+</p>
+</dd>
+<dt><code>LBOUND(<var>array</var> [, <var>dim</var> [, <var>kind</var>]])</code></dt>
+<dd><p>Returns the lower bounds of an <var>array</var>, or a single lower bound along the
+<var>dim</var> dimension if present.  The optional parameter <var>kind</var> specifies
+the kind of the return type <code>Integer(<var>kind</var>)</code>.
+</p>
+</dd>
+<dt><code>LOC(<var>x</var>)</code></dt>
+<dd><p>Returns the address of <var>x</var> as an <code>Integer</code>.
+</p>
+</dd>
+<dt><code>MOD(<var>a</var>, <var>p</var>)</code></dt>
+<dd><p>Computes the remainder of the division of <var>a</var> by <var>p</var>.
+</p>
+</dd>
+<dt><code>MODULO(<var>a</var>, <var>p</var>)</code></dt>
+<dd><p>Computes the <var>a</var> modulo <var>p</var>.
+</p>
+</dd>
+<dt><code>RANK(<var>a</var>)</code></dt>
+<dd><p>Returns the rank of a scalar or array (scalars have rank <code>0</code>).
+</p>
+</dd>
+<dt><code>SHAPE(<var>a</var>)</code></dt>
+<dd><p>Returns the shape of a scalar or array (scalars have shape &lsquo;<samp>()</samp>&rsquo;).
+</p>
+</dd>
+<dt><code>SIZE(<var>array</var>[, <var>dim</var> [, <var>kind</var>]])</code></dt>
+<dd><p>Returns the extent of <var>array</var> along a specified dimension <var>dim</var>, or the
+total number of elements in <var>array</var> if <var>dim</var> is absent.  The optional
+parameter <var>kind</var> specifies the kind of the return type
+<code>Integer(<var>kind</var>)</code>.
+</p>
+</dd>
+<dt><code>UBOUND(<var>array</var> [, <var>dim</var> [, <var>kind</var>]])</code></dt>
+<dd><p>Returns the upper bounds of an <var>array</var>, or a single upper bound along the
+<var>dim</var> dimension if present.  The optional parameter <var>kind</var> specifies
+the kind of the return type <code>Integer(<var>kind</var>)</code>.
+</p>
+</dd>
+</dl>
+
+<hr>
+<div class="header">
+<p>
+Next: <a href="Special-Fortran-Commands.html" accesskey="n" rel="next">Special Fortran Commands</a>, Previous: <a href="Fortran-Operators.html" accesskey="p" rel="prev">Fortran Operators</a>, Up: <a href="Fortran.html" accesskey="u" rel="up">Fortran</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+
+
+
+</body>
+</html>

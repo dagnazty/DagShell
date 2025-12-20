@@ -1,0 +1,122 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Copyright (C) 1988-2023 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Free Software" and "Free Software Needs
+Free Documentation", with the Front-Cover Texts being "A GNU Manual,"
+and with the Back-Cover Texts as in (a) below.
+
+(a) The FSF's Back-Cover Text is: "You are free to copy and modify
+this GNU Manual.  Buying copies from GNU Press supports the FSF in
+developing GNU and promoting software freedom." -->
+<!-- Created by GNU Texinfo 6.7, http://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Fortran Types (Debugging with GDB)</title>
+
+<meta name="description" content="Fortran Types (Debugging with GDB)">
+<meta name="keywords" content="Fortran Types (Debugging with GDB)">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<link href="index.html" rel="start" title="Top">
+<link href="Concept-Index.html" rel="index" title="Concept Index">
+<link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Fortran.html" rel="up" title="Fortran">
+<link href="Fortran-Operators.html" rel="next" title="Fortran Operators">
+<link href="Fortran.html" rel="prev" title="Fortran">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.indentedblock {margin-right: 0em}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+kbd {font-style: oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+span.nolinebreak {white-space: nowrap}
+span.roman {font-family: initial; font-weight: normal}
+span.sansserif {font-family: sans-serif; font-weight: normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en">
+<span id="Fortran-Types"></span><div class="header">
+<p>
+Next: <a href="Fortran-Operators.html" accesskey="n" rel="next">Fortran Operators</a>, Up: <a href="Fortran.html" accesskey="u" rel="up">Fortran</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<span id="Fortran-Types-1"></span><h4 class="subsubsection">15.4.6.1 Fortran Types</h4>
+
+<span id="index-Fortran-Types"></span>
+
+<p>In Fortran the primitive data-types have an associated <code>KIND</code> type
+parameter, written as &lsquo;<samp><var>type</var>*<var>kindparam</var></samp>&rsquo;,
+&lsquo;<samp><var>type</var>*<var>kindparam</var></samp>&rsquo;, or in the <small>GDB</small>-only dialect
+&lsquo;<samp><var>type</var>_<var>kindparam</var></samp>&rsquo;.  A concrete example would be
+&lsquo;<samp><code>Real*4</code></samp>&rsquo;, &lsquo;<samp><code>Real(kind=4)</code></samp>&rsquo;, and &lsquo;<samp><code>Real_4</code></samp>&rsquo;.
+The kind of a type can be retrieved by using the intrinsic function
+<code>KIND</code>, see <a href="Fortran-Intrinsics.html">Fortran Intrinsics</a>.
+</p>
+<p>Generally, the actual implementation of the <code>KIND</code> type parameter is
+compiler specific.  In <small>GDB</small> the kind parameter is implemented in
+accordance with its use in the <small>GNU</small> <code>gfortran</code> compiler.  Here, the
+kind parameter for a given <var>type</var> specifies its size in memory &mdash; a
+Fortran <code>Integer*4</code> or <code>Integer(kind=4)</code> would be an integer type
+occupying 4 bytes of memory.  An exception to this rule is the <code>Complex</code>
+type for which the kind of the type does not specify its entire size, but
+the size of each of the two <code>Real</code>&rsquo;s it is composed of.  A
+<code>Complex*4</code> would thus consist of two <code>Real*4</code>s and occupy 8 bytes
+of memory.
+</p>
+<p>For every type there is also a default kind associated with it, e.g.&nbsp;<code>Integer</code> in <small>GDB</small> will internally be an <code>Integer*4</code> (see the
+table below for default types).  The default types are the same as in <small>GNU</small>
+compilers but note, that the <small>GNU</small> default types can actually be changed by
+compiler flags such as <samp>-fdefault-integer-8</samp> and
+<samp>-fdefault-real-8</samp>.
+</p>
+<p>Not every kind parameter is valid for every type and in <small>GDB</small> the
+following type kinds are available.
+</p>
+<dl compact="compact">
+<dt><code>Integer</code></dt>
+<dd><p><code>Integer*1</code>, <code>Integer*2</code>, <code>Integer*4</code>, <code>Integer*8</code>, and
+<code>Integer</code> = <code>Integer*4</code>.
+</p>
+</dd>
+<dt><code>Logical</code></dt>
+<dd><p><code>Logical*1</code>, <code>Logical*2</code>, <code>Logical*4</code>, <code>Logical*8</code>, and
+<code>Logical</code> = <code>Logical*4</code>.
+</p>
+</dd>
+<dt><code>Real</code></dt>
+<dd><p><code>Real*4</code>, <code>Real*8</code>, <code>Real*16</code>, and <code>Real</code> = <code>Real*4</code>.
+</p>
+</dd>
+<dt><code>Complex</code></dt>
+<dd><p><code>Complex*4</code>, <code>Complex*8</code>, <code>Complex*16</code>, and <code>Complex</code> =
+<code>Complex*4</code>.
+</p>
+</dd>
+</dl>
+
+<hr>
+<div class="header">
+<p>
+Next: <a href="Fortran-Operators.html" accesskey="n" rel="next">Fortran Operators</a>, Up: <a href="Fortran.html" accesskey="u" rel="up">Fortran</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+
+
+
+</body>
+</html>

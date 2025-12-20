@@ -1,0 +1,126 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Copyright (C) 1988-2023 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Free Software" and "Free Software Needs
+Free Documentation", with the Front-Cover Texts being "A GNU Manual,"
+and with the Back-Cover Texts as in (a) below.
+
+(a) The FSF's Back-Cover Text is: "You are free to copy and modify
+this GNU Manual.  Buying copies from GNU Press supports the FSF in
+developing GNU and promoting software freedom." -->
+<!-- Created by GNU Texinfo 6.7, http://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Debuginfod Settings (Debugging with GDB)</title>
+
+<meta name="description" content="Debuginfod Settings (Debugging with GDB)">
+<meta name="keywords" content="Debuginfod Settings (Debugging with GDB)">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<link href="index.html" rel="start" title="Top">
+<link href="Concept-Index.html" rel="index" title="Concept Index">
+<link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Debuginfod.html" rel="up" title="Debuginfod">
+<link href="Man-Pages.html" rel="next" title="Man Pages">
+<link href="Debuginfod.html" rel="prev" title="Debuginfod">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.indentedblock {margin-right: 0em}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+kbd {font-style: oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+span.nolinebreak {white-space: nowrap}
+span.roman {font-family: initial; font-weight: normal}
+span.sansserif {font-family: sans-serif; font-weight: normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en">
+<span id="Debuginfod-Settings"></span><div class="header">
+<p>
+Up: <a href="Debuginfod.html" accesskey="u" rel="up">Debuginfod</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<span id="Debuginfod-Settings-1"></span><h3 class="section">K.1 Debuginfod Settings</h3>
+
+<p><small>GDB</small> provides the following commands for configuring <code>debuginfod</code>.
+</p>
+<dl compact="compact">
+<dd><span id="index-set-debuginfod-enabled"></span>
+<span id="set-debuginfod-enabled"></span></dd>
+<dt><code>set debuginfod enabled</code></dt>
+<dt><code>set debuginfod enabled on</code></dt>
+<dd><span id="index-enable-debuginfod"></span>
+<p><small>GDB</small> will attempt to query <code>debuginfod</code> servers when missing debug
+info or source files.
+</p>
+</dd>
+<dt><code>set debuginfod enabled off</code></dt>
+<dd><p><small>GDB</small> will not attempt to query <code>debuginfod</code> servers when missing
+debug info or source files.  By default, <code>debuginfod enabled</code> is set to
+<code>off</code> for non-interactive sessions.
+</p>
+</dd>
+<dt><code>set debuginfod enabled ask</code></dt>
+<dd><p><small>GDB</small> will prompt the user to enable or disable <code>debuginfod</code> before
+attempting to perform the next query.  By default, <code>debuginfod enabled</code>
+is set to <code>ask</code> for interactive sessions.
+</p>
+<span id="index-show-debuginfod-enabled"></span>
+</dd>
+<dt><code>show debuginfod enabled</code></dt>
+<dd><p>Display whether <code>debuginfod enabled</code> is set to <code>on</code>, <code>off</code> or
+<code>ask</code>.
+</p>
+<span id="index-set-debuginfod-urls"></span>
+<span id="index-configure-debuginfod-URLs"></span>
+</dd>
+<dt><code>set debuginfod urls</code></dt>
+<dt><code>set debuginfod urls <var>urls</var></code></dt>
+<dd><p>Set the space-separated list of URLs that <code>debuginfod</code> will attempt to
+query.  Only <code>http://</code>, <code>https://</code> and <code>file://</code> protocols
+should be used.  The default value of <code>debuginfod urls</code> is copied from
+the <var>DEBUGINFOD_URLS</var> environment variable.
+</p>
+<span id="index-show-debuginfod-urls"></span>
+</dd>
+<dt><code>show debuginfod urls</code></dt>
+<dd><p>Display the list of URLs that <code>debuginfod</code> will attempt to query.
+</p>
+<span id="index-set-debuginfod-verbose"></span>
+<span id="index-debuginfod-verbosity"></span>
+</dd>
+<dt><code>set debuginfod verbose</code></dt>
+<dt><code>set debuginfod verbose <var>n</var></code></dt>
+<dd><p>Enable or disable <code>debuginfod</code>-related output.  Use a non-zero value
+to enable and <code>0</code> to disable.  <code>debuginfod</code> output is shown by
+default.
+</p>
+<span id="index-show-debuginfod-verbose"></span>
+</dd>
+<dt><code>show debuginfod verbose</code></dt>
+<dd><p>Show the current verbosity setting.
+</p>
+</dd>
+</dl>
+
+
+
+
+</body>
+</html>

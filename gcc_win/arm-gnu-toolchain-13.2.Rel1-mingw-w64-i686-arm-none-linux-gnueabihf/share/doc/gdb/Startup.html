@@ -1,0 +1,137 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Copyright (C) 1988-2023 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Free Software" and "Free Software Needs
+Free Documentation", with the Front-Cover Texts being "A GNU Manual,"
+and with the Back-Cover Texts as in (a) below.
+
+(a) The FSF's Back-Cover Text is: "You are free to copy and modify
+this GNU Manual.  Buying copies from GNU Press supports the FSF in
+developing GNU and promoting software freedom." -->
+<!-- Created by GNU Texinfo 6.7, http://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Startup (Debugging with GDB)</title>
+
+<meta name="description" content="Startup (Debugging with GDB)">
+<meta name="keywords" content="Startup (Debugging with GDB)">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<link href="index.html" rel="start" title="Top">
+<link href="Concept-Index.html" rel="index" title="Concept Index">
+<link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Invoking-GDB.html" rel="up" title="Invoking GDB">
+<link href="Initialization-Files.html" rel="next" title="Initialization Files">
+<link href="Mode-Options.html" rel="prev" title="Mode Options">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.indentedblock {margin-right: 0em}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+kbd {font-style: oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+span.nolinebreak {white-space: nowrap}
+span.roman {font-family: initial; font-weight: normal}
+span.sansserif {font-family: sans-serif; font-weight: normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en">
+<span id="Startup"></span><div class="header">
+<p>
+Next: <a href="Initialization-Files.html" accesskey="n" rel="next">Initialization Files</a>, Previous: <a href="Mode-Options.html" accesskey="p" rel="prev">Mode Options</a>, Up: <a href="Invoking-GDB.html" accesskey="u" rel="up">Invoking GDB</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<span id="What-GDB-Does-During-Startup"></span><h4 class="subsection">2.1.3 What <small>GDB</small> Does During Startup</h4>
+<span id="index-GDB-startup"></span>
+
+<p>Here&rsquo;s the description of what <small>GDB</small> does during session startup:
+</p>
+<ol>
+<li> Performs minimal setup required to initialize basic internal state.
+
+</li><li> <span id="index-early-initialization-file"></span>
+Reads commands from the early initialization file (if any) in your
+home directory.  Only a restricted set of commands can be placed into
+an early initialization file, see <a href="Initialization-Files.html">Initialization Files</a>, for
+details.
+
+</li><li> Executes commands and command files specified by the &lsquo;<samp>-eiex</samp>&rsquo; and
+&lsquo;<samp>-eix</samp>&rsquo; command line options in their specified order.  Only a
+restricted set of commands can be used with &lsquo;<samp>-eiex</samp>&rsquo; and
+&lsquo;<samp>eix</samp>&rsquo;, see <a href="Initialization-Files.html">Initialization Files</a>, for details.
+
+</li><li> Sets up the command interpreter as specified by the command line
+(see <a href="Mode-Options.html">interpreter</a>).
+
+</li><li> <span id="index-init-file"></span>
+Reads the system wide initialization file and the files from the
+system wide initialization directory, see <a href="Initialization-Files.html#System-Wide-Init-Files">System Wide Init Files</a>.
+
+</li><li> Reads the initialization file (if any) in your home directory and
+executes all the commands in that file, see <a href="Initialization-Files.html#Home-Directory-Init-File">Home Directory Init File</a>.
+
+<span id="Option-_002dinit_002deval_002dcommand"></span></li><li> Executes commands and command files specified by the &lsquo;<samp>-iex</samp>&rsquo; and
+&lsquo;<samp>-ix</samp>&rsquo; options in their specified order.  Usually you should use the
+&lsquo;<samp>-ex</samp>&rsquo; and &lsquo;<samp>-x</samp>&rsquo; options instead, but this way you can apply
+settings before <small>GDB</small> init files get executed and before inferior
+gets loaded.
+
+</li><li> Processes command line options and operands.
+
+</li><li> Reads and executes the commands from the initialization file (if any)
+in the current working directory as long as &lsquo;<samp>set auto-load
+local-gdbinit</samp>&rsquo; is set to &lsquo;<samp>on</samp>&rsquo; (see <a href="Init-File-in-the-Current-Directory.html">Init File in the Current Directory</a>).  This is only done if the current directory is different
+from your home directory.  Thus, you can have more than one init file,
+one generic in your home directory, and another, specific to the
+program you are debugging, in the directory where you invoke
+<small>GDB</small>. See <a href="Initialization-Files.html#Init-File-in-the-Current-Directory-during-Startup">Init File in the Current Directory during Startup</a>.
+
+</li><li> If the command line specified a program to debug, or a process to
+attach to, or a core file, <small>GDB</small> loads any auto-loaded
+scripts provided for the program or for its loaded shared libraries.
+See <a href="Auto_002dloading.html">Auto-loading</a>.
+
+<p>If you wish to disable the auto-loading during startup,
+you must do something like the following:
+</p>
+<div class="example">
+<pre class="example">$ gdb -iex &quot;set auto-load python-scripts off&quot; myprogram
+</pre></div>
+
+<p>Option &lsquo;<samp>-ex</samp>&rsquo; does not work because the auto-loading is then turned
+off too late.
+</p>
+</li><li> Executes commands and command files specified by the &lsquo;<samp>-ex</samp>&rsquo; and
+&lsquo;<samp>-x</samp>&rsquo; options in their specified order.  See <a href="Command-Files.html">Command Files</a>, for
+more details about <small>GDB</small> command files.
+
+</li><li> Reads the command history recorded in the <em>history file</em>.
+See <a href="Command-History.html">Command History</a>, for more details about the command history and the
+files where <small>GDB</small> records it.
+</li></ol>
+
+<hr>
+<div class="header">
+<p>
+Next: <a href="Initialization-Files.html" accesskey="n" rel="next">Initialization Files</a>, Previous: <a href="Mode-Options.html" accesskey="p" rel="prev">Mode Options</a>, Up: <a href="Invoking-GDB.html" accesskey="u" rel="up">Invoking GDB</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+
+
+
+</body>
+</html>

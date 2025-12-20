@@ -1,0 +1,1254 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- This file documents the internals of the GNU linker ld.
+
+Copyright (C) 1992-2023 Free Software Foundation, Inc.
+Contributed by Cygnus Support.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "GNU General Public License" and "Funding
+Free Software", the Front-Cover texts being (a) (see below), and with
+the Back-Cover Texts being (b) (see below).  A copy of the license is
+included in the section entitled "GNU Free Documentation License".
+
+(a) The FSF's Front-Cover Text is:
+
+A GNU Manual
+
+(b) The FSF's Back-Cover Text is:
+
+You have freedom to copy and modify this GNU Manual, like GNU
+     software.  Copies published by the Free Software Foundation raise
+     funds for GNU development. -->
+<!-- Created by GNU Texinfo 6.7, http://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Untitled Document</title>
+
+<meta name="description" content="Untitled Document">
+<meta name="keywords" content="Untitled Document">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<link href="#Top" rel="start" title="Top">
+<link href="#SEC_Contents" rel="contents" title="Table of Contents">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.indentedblock {margin-right: 0em}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+kbd {font-style: oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+span.nolinebreak {white-space: nowrap}
+span.roman {font-family: initial; font-weight: normal}
+span.sansserif {font-family: sans-serif; font-weight: normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en">
+
+
+
+
+<span id="Top"></span><div class="header">
+<p>
+Next: <a href="#README" accesskey="n" rel="next">README</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</p>
+</div>
+<span id="SEC_Top"></span>
+<p>This file documents the internals of the GNU linker <code>ld</code>.  It is a
+collection of miscellaneous information with little form at this point.
+Mostly, it is a repository into which you can put information about
+GNU <code>ld</code> as you discover it (or as you design changes to <code>ld</code>).
+</p>
+<p>This document is distributed under the terms of the GNU Free
+Documentation License.  A copy of the license is included in the
+section entitled &quot;GNU Free Documentation License&quot;.
+</p>
+<table class="menu" border="0" cellspacing="0">
+<tr><td align="left" valign="top">&bull; <a href="#README" accesskey="1">README</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top">The README File
+</td></tr>
+<tr><td align="left" valign="top">&bull; <a href="#Emulations" accesskey="2">Emulations</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top">How linker emulations are generated
+</td></tr>
+<tr><td align="left" valign="top">&bull; <a href="#Emulation-Walkthrough" accesskey="3">Emulation Walkthrough</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top">A Walkthrough of a Typical Emulation
+</td></tr>
+<tr><td align="left" valign="top">&bull; <a href="#Architecture-Specific" accesskey="4">Architecture Specific</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top">Some Architecture Specific Notes
+</td></tr>
+<tr><td align="left" valign="top">&bull; <a href="#GNU-Free-Documentation-License" accesskey="5">GNU Free Documentation License</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top">GNU Free Documentation License
+</td></tr>
+</table>
+
+<hr>
+<span id="README"></span><div class="header">
+<p>
+Next: <a href="#Emulations" accesskey="n" rel="next">Emulations</a>, Previous: <a href="#Top" accesskey="p" rel="prev">Top</a>, Up: <a href="#Top" accesskey="u" rel="up">Top</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</p>
+</div>
+<span id="The-README-File"></span><h2 class="chapter">1 The <samp>README</samp> File</h2>
+
+<p>Check the <samp>README</samp> file; it often has useful information that does not
+appear anywhere else in the directory.
+</p>
+<hr>
+<span id="Emulations"></span><div class="header">
+<p>
+Next: <a href="#Emulation-Walkthrough" accesskey="n" rel="next">Emulation Walkthrough</a>, Previous: <a href="#README" accesskey="p" rel="prev">README</a>, Up: <a href="#Top" accesskey="u" rel="up">Top</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</p>
+</div>
+<span id="How-linker-emulations-are-generated"></span><h2 class="chapter">2 How linker emulations are generated</h2>
+
+<p>Each linker target has an <em>emulation</em>.  The emulation includes the
+default linker script, and certain emulations also modify certain types
+of linker behaviour.
+</p>
+<p>Emulations are created during the build process by the shell script
+<samp>genscripts.sh</samp>.
+</p>
+<p>The <samp>genscripts.sh</samp> script starts by reading a file in the
+<samp>emulparams</samp> directory.  This is a shell script which sets various
+shell variables used by <samp>genscripts.sh</samp> and the other shell scripts
+it invokes.
+</p>
+<p>The <samp>genscripts.sh</samp> script will invoke a shell script in the
+<samp>scripttempl</samp> directory in order to create default linker scripts
+written in the linker command language.  The <samp>scripttempl</samp> script
+will be invoked 5 (or, in some cases, 6) times, with different
+assignments to shell variables, to create different default scripts.
+The choice of script is made based on the command-line options.
+</p>
+<p>After creating the scripts, <samp>genscripts.sh</samp> will invoke yet another
+shell script, this time in the <samp>emultempl</samp> directory.  That shell
+script will create the emulation source file, which contains C code.
+This C code permits the linker emulation to override various linker
+behaviours.  Most targets use the generic emulation code, which is in
+<samp>emultempl/generic.em</samp>.
+</p>
+<p>To summarize, <samp>genscripts.sh</samp> reads three shell scripts: an
+emulation parameters script in the <samp>emulparams</samp> directory, a linker
+script generation script in the <samp>scripttempl</samp> directory, and an
+emulation source file generation script in the <samp>emultempl</samp>
+directory.
+</p>
+<p>For example, the Sun 4 linker sets up variables in
+<samp>emulparams/sun4.sh</samp>, creates linker scripts using
+<samp>scripttempl/aout.sc</samp>, and creates the emulation code using
+<samp>emultempl/sunos.em</samp>.
+</p>
+<p>Note that the linker can support several emulations simultaneously,
+depending upon how it is configured.  An emulation can be selected with
+the <code>-m</code> option.  The <code>-V</code> option will list all supported
+emulations.
+</p>
+<table class="menu" border="0" cellspacing="0">
+<tr><td align="left" valign="top">&bull; <a href="#emulation-parameters" accesskey="1">emulation parameters</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top"><samp>emulparams</samp> scripts
+</td></tr>
+<tr><td align="left" valign="top">&bull; <a href="#linker-scripts" accesskey="2">linker scripts</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top"><samp>scripttempl</samp> scripts
+</td></tr>
+<tr><td align="left" valign="top">&bull; <a href="#linker-emulations" accesskey="3">linker emulations</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top"><samp>emultempl</samp> scripts
+</td></tr>
+</table>
+
+<hr>
+<span id="emulation-parameters"></span><div class="header">
+<p>
+Next: <a href="#linker-scripts" accesskey="n" rel="next">linker scripts</a>, Up: <a href="#Emulations" accesskey="u" rel="up">Emulations</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</p>
+</div>
+<span id="emulparams-scripts"></span><h3 class="section">2.1 <samp>emulparams</samp> scripts</h3>
+
+<p>Each target selects a particular file in the <samp>emulparams</samp> directory
+by setting the shell variable <code>targ_emul</code> in <samp>configure.tgt</samp>.
+This shell variable is used by the <samp>configure</samp> script to control
+building an emulation source file.
+</p>
+<p>Certain conventions are enforced.  Suppose the <code>targ_emul</code> variable
+is set to <var>emul</var> in <samp>configure.tgt</samp>.  The name of the emulation
+shell script will be <samp>emulparams/<var>emul</var>.sh</samp>.  The
+<samp>Makefile</samp> must have a target named <samp>e<var>emul</var>.c</samp>; this
+target must depend upon <samp>emulparams/<var>emul</var>.sh</samp>, as well as the
+appropriate scripts in the <samp>scripttempl</samp> and <samp>emultempl</samp>
+directories.  The <samp>Makefile</samp> target must invoke <code>GENSCRIPTS</code>
+with two arguments: <var>emul</var>, and the value of the make variable
+<code>tdir_<var>emul</var></code>.  The value of the latter variable will be set by
+the <samp>configure</samp> script, and is used to set the default target
+directory to search.
+</p>
+<p>By convention, the <samp>emulparams/<var>emul</var>.sh</samp> shell script should
+only set shell variables.  It may set shell variables which are to be
+interpreted by the <samp>scripttempl</samp> and the <samp>emultempl</samp> scripts.
+Certain shell variables are interpreted directly by the
+<samp>genscripts.sh</samp> script.
+</p>
+<p>Here is a list of shell variables interpreted by <samp>genscripts.sh</samp>,
+as well as some conventional shell variables interpreted by the
+<samp>scripttempl</samp> and <samp>emultempl</samp> scripts.
+</p>
+<dl compact="compact">
+<dt><code>SCRIPT_NAME</code></dt>
+<dd><p>This is the name of the <samp>scripttempl</samp> script to use.  If
+<code>SCRIPT_NAME</code> is set to <var>script</var>, <samp>genscripts.sh</samp> will use
+the script <samp>scripttempl/<var>script</var>.sc</samp>.
+</p>
+</dd>
+<dt><code>TEMPLATE_NAME</code></dt>
+<dd><p>This is the name of the <samp>emultempl</samp> script to use.  If
+<code>TEMPLATE_NAME</code> is set to <var>template</var>, <samp>genscripts.sh</samp> will
+use the script <samp>emultempl/<var>template</var>.em</samp>.  If this variable is
+not set, the default value is &lsquo;<samp>generic</samp>&rsquo;.
+</p>
+</dd>
+<dt><code>GENERATE_SHLIB_SCRIPT</code></dt>
+<dd><p>If this is set to a nonempty string, <samp>genscripts.sh</samp> will invoke
+the <samp>scripttempl</samp> script an extra time to create a shared library
+script.  <a href="#linker-scripts">linker scripts</a>.
+</p>
+</dd>
+<dt><code>OUTPUT_FORMAT</code></dt>
+<dd><p>This is normally set to indicate the BFD output format use (e.g.,
+&lsquo;<samp>&quot;a.out-sunos-big&quot;</samp>&rsquo;.  The <samp>scripttempl</samp> script will normally
+use it in an <code>OUTPUT_FORMAT</code> expression in the linker script.
+</p>
+</dd>
+<dt><code>ARCH</code></dt>
+<dd><p>This is normally set to indicate the architecture to use (e.g.,
+&lsquo;<samp>sparc</samp>&rsquo;).  The <samp>scripttempl</samp> script will normally use it in an
+<code>OUTPUT_ARCH</code> expression in the linker script.
+</p>
+</dd>
+<dt><code>ENTRY</code></dt>
+<dd><p>Some <samp>scripttempl</samp> scripts use this to set the entry address, in an
+<code>ENTRY</code> expression in the linker script.
+</p>
+</dd>
+<dt><code>TEXT_START_ADDR</code></dt>
+<dd><p>Some <samp>scripttempl</samp> scripts use this to set the start address of the
+&lsquo;<samp>.text</samp>&rsquo; section.
+</p>
+</dd>
+<dt><code>SEGMENT_SIZE</code></dt>
+<dd><p>The <samp>genscripts.sh</samp> script uses this to set the default value of
+<code>DATA_ALIGNMENT</code> when running the <samp>scripttempl</samp> script.
+</p>
+</dd>
+<dt><code>TARGET_PAGE_SIZE</code></dt>
+<dd><p>If <code>SEGMENT_SIZE</code> is not defined, the <samp>genscripts.sh</samp> script
+uses this to define it.
+</p>
+</dd>
+<dt><code>ALIGNMENT</code></dt>
+<dd><p>Some <samp>scripttempl</samp> scripts set this to a number to pass to
+<code>ALIGN</code> to set the required alignment for the <code>end</code> symbol.
+</p></dd>
+</dl>
+
+<hr>
+<span id="linker-scripts"></span><div class="header">
+<p>
+Next: <a href="#linker-emulations" accesskey="n" rel="next">linker emulations</a>, Previous: <a href="#emulation-parameters" accesskey="p" rel="prev">emulation parameters</a>, Up: <a href="#Emulations" accesskey="u" rel="up">Emulations</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</p>
+</div>
+<span id="scripttempl-scripts"></span><h3 class="section">2.2 <samp>scripttempl</samp> scripts</h3>
+
+<p>Each linker target uses a <samp>scripttempl</samp> script to generate the
+default linker scripts.  The name of the <samp>scripttempl</samp> script is
+set by the <code>SCRIPT_NAME</code> variable in the <samp>emulparams</samp> script.
+If <code>SCRIPT_NAME</code> is set to <var>script</var>, <code>genscripts.sh</code> will
+invoke <samp>scripttempl/<var>script</var>.sc</samp>.
+</p>
+<p>The <samp>genscripts.sh</samp> script will invoke the <samp>scripttempl</samp>
+script 5 to 9 times.  Each time it will set the shell variable
+<code>LD_FLAG</code> to a different value.  When the linker is run, the
+options used will direct it to select a particular script.  (Script
+selection is controlled by the <code>get_script</code> emulation entry point;
+this describes the conventional behaviour).
+</p>
+<p>The <samp>scripttempl</samp> script should just write a linker script, written
+in the linker command language, to standard output.  If the emulation
+name&ndash;the name of the <samp>emulparams</samp> file without the <samp>.sc</samp>
+extension&ndash;is <var>emul</var>, then the output will be directed to
+<samp>ldscripts/<var>emul</var>.<var>extension</var></samp> in the build directory,
+where <var>extension</var> changes each time the <samp>scripttempl</samp> script is
+invoked.
+</p>
+<p>Here is the list of values assigned to <code>LD_FLAG</code>.
+</p>
+<dl compact="compact">
+<dt><code>(empty)</code></dt>
+<dd><p>The script generated is used by default (when none of the following
+cases apply).  The output has an extension of <samp>.x</samp>.
+</p></dd>
+<dt><code>n</code></dt>
+<dd><p>The script generated is used when the linker is invoked with the
+<code>-n</code> option.  The output has an extension of <samp>.xn</samp>.
+</p></dd>
+<dt><code>N</code></dt>
+<dd><p>The script generated is used when the linker is invoked with the
+<code>-N</code> option.  The output has an extension of <samp>.xbn</samp>.
+</p></dd>
+<dt><code>r</code></dt>
+<dd><p>The script generated is used when the linker is invoked with the
+<code>-r</code> option.  The output has an extension of <samp>.xr</samp>.
+</p></dd>
+<dt><code>u</code></dt>
+<dd><p>The script generated is used when the linker is invoked with the
+<code>-Ur</code> option.  The output has an extension of <samp>.xu</samp>.
+</p></dd>
+<dt><code>shared</code></dt>
+<dd><p>The <samp>scripttempl</samp> script is only invoked with <code>LD_FLAG</code> set to
+this value if <code>GENERATE_SHLIB_SCRIPT</code> is defined in the
+<samp>emulparams</samp> file.  The <samp>emultempl</samp> script must arrange to use
+this script at the appropriate time, normally when the linker is invoked
+with the <code>-shared</code> option.  The output has an extension of
+<samp>.xs</samp>.
+</p></dd>
+<dt><code>c</code></dt>
+<dd><p>The <samp>scripttempl</samp> script is only invoked with <code>LD_FLAG</code> set to
+this value if <code>GENERATE_COMBRELOC_SCRIPT</code> is defined in the
+<samp>emulparams</samp> file or if <code>SCRIPT_NAME</code> is <code>elf</code>. The
+<samp>emultempl</samp> script must arrange to use this script at the appropriate
+time, normally when the linker is invoked with the <code>-z combreloc</code>
+option.  The output has an extension of
+<samp>.xc</samp>.
+</p></dd>
+<dt><code>cshared</code></dt>
+<dd><p>The <samp>scripttempl</samp> script is only invoked with <code>LD_FLAG</code> set to
+this value if <code>GENERATE_COMBRELOC_SCRIPT</code> is defined in the
+<samp>emulparams</samp> file or if <code>SCRIPT_NAME</code> is <code>elf</code> and
+<code>GENERATE_SHLIB_SCRIPT</code> is defined in the <samp>emulparams</samp> file.
+The <samp>emultempl</samp> script must arrange to use this script at the
+appropriate time, normally when the linker is invoked with the <code>-shared
+-z combreloc</code> option.  The output has an extension of <samp>.xsc</samp>.
+</p></dd>
+<dt><code>auto_import</code></dt>
+<dd><p>The <samp>scripttempl</samp> script is only invoked with <code>LD_FLAG</code> set to
+this value if <code>GENERATE_AUTO_IMPORT_SCRIPT</code> is defined in the
+<samp>emulparams</samp> file.  The <samp>emultempl</samp> script must arrange to
+use this script at the appropriate time, normally when the linker is
+invoked with the <code>--enable-auto-import</code> option.  The output has
+an extension of <samp>.xa</samp>.
+</p></dd>
+</dl>
+
+<p>Besides the shell variables set by the <samp>emulparams</samp> script, and the
+<code>LD_FLAG</code> variable, the <samp>genscripts.sh</samp> script will set
+certain variables for each run of the <samp>scripttempl</samp> script.
+</p>
+<dl compact="compact">
+<dt><code>RELOCATING</code></dt>
+<dd><p>This will be set to a non-empty string when the linker is doing a final
+relocation (e.g., all scripts other than <code>-r</code> and <code>-Ur</code>).
+</p>
+</dd>
+<dt><code>CONSTRUCTING</code></dt>
+<dd><p>This will be set to a non-empty string when the linker is building
+global constructor and destructor tables (e.g., all scripts other than
+<code>-r</code>).
+</p>
+</dd>
+<dt><code>DATA_ALIGNMENT</code></dt>
+<dd><p>This will be set to an <code>ALIGN</code> expression when the output should be
+page aligned, or to &lsquo;<samp>.</samp>&rsquo; when generating the <code>-N</code> script.
+</p>
+</dd>
+<dt><code>CREATE_SHLIB</code></dt>
+<dd><p>This will be set to a non-empty string when generating a <code>-shared</code>
+script.
+</p>
+</dd>
+<dt><code>COMBRELOC</code></dt>
+<dd><p>This will be set to a non-empty string when generating <code>-z combreloc</code>
+scripts to a temporary file name which can be used during script generation.
+</p></dd>
+</dl>
+
+<p>The conventional way to write a <samp>scripttempl</samp> script is to first
+set a few shell variables, and then write out a linker script using
+<code>cat</code> with a here document.  The linker script will use variable
+substitutions, based on the above variables and those set in the
+<samp>emulparams</samp> script, to control its behaviour.
+</p>
+<p>When there are parts of the <samp>scripttempl</samp> script which should only
+be run when doing a final relocation, they should be enclosed within a
+variable substitution based on <code>RELOCATING</code>.  For example, on many
+targets special symbols such as <code>_end</code> should be defined when doing
+a final link.  Naturally, those symbols should not be defined when doing
+a relocatable link using <code>-r</code>.  The <samp>scripttempl</samp> script
+could use a construct like this to define those symbols:
+</p><div class="example">
+<pre class="example">  ${RELOCATING+ _end = .;}
+</pre></div>
+<p>This will do the symbol assignment only if the <code>RELOCATING</code>
+variable is defined.
+</p>
+<p>The basic job of the linker script is to put the sections in the correct
+order, and at the correct memory addresses.  For some targets, the
+linker script may have to do some other operations.
+</p>
+<p>For example, on most MIPS platforms, the linker is responsible for
+defining the special symbol <code>_gp</code>, used to initialize the
+<code>$gp</code> register.  It must be set to the start of the small data
+section plus <code>0x8000</code>.  Naturally, it should only be defined when
+doing a final relocation.  This will typically be done like this:
+</p><div class="example">
+<pre class="example">  ${RELOCATING+ _gp = ALIGN(16) + 0x8000;}
+</pre></div>
+<p>This line would appear just before the sections which compose the small
+data section (&lsquo;<samp>.sdata</samp>&rsquo;, &lsquo;<samp>.sbss</samp>&rsquo;).  All those sections would be
+contiguous in memory.
+</p>
+<p>Many COFF systems build constructor tables in the linker script.  The
+compiler will arrange to output the address of each global constructor
+in a &lsquo;<samp>.ctor</samp>&rsquo; section, and the address of each global destructor in
+a &lsquo;<samp>.dtor</samp>&rsquo; section (this is done by defining
+<code>ASM_OUTPUT_CONSTRUCTOR</code> and <code>ASM_OUTPUT_DESTRUCTOR</code> in the
+<code>gcc</code> configuration files).  The <code>gcc</code> runtime support
+routines expect the constructor table to be named <code>__CTOR_LIST__</code>.
+They expect it to be a list of words, with the first word being the
+count of the number of entries.  There should be a trailing zero word.
+(Actually, the count may be -1 if the trailing word is present, and the
+trailing word may be omitted if the count is correct, but, as the
+<code>gcc</code> behaviour has changed slightly over the years, it is safest
+to provide both).  Here is a typical way that might be handled in a
+<samp>scripttempl</samp> file.
+</p><div class="example">
+<pre class="example">    ${CONSTRUCTING+ __CTOR_LIST__ = .;}
+    ${CONSTRUCTING+ LONG((__CTOR_END__ - __CTOR_LIST__) / 4 - 2)}
+    ${CONSTRUCTING+ *(.ctors)}
+    ${CONSTRUCTING+ LONG(0)}
+    ${CONSTRUCTING+ __CTOR_END__ = .;}
+    ${CONSTRUCTING+ __DTOR_LIST__ = .;}
+    ${CONSTRUCTING+ LONG((__DTOR_END__ - __DTOR_LIST__) / 4 - 2)}
+    ${CONSTRUCTING+ *(.dtors)}
+    ${CONSTRUCTING+ LONG(0)}
+    ${CONSTRUCTING+ __DTOR_END__ = .;}
+</pre></div>
+<p>The use of <code>CONSTRUCTING</code> ensures that these linker script commands
+will only appear when the linker is supposed to be building the
+constructor and destructor tables.  This example is written for a target
+which uses 4 byte pointers.
+</p>
+<p>Embedded systems often need to set a stack address.  This is normally
+best done by using the <code>PROVIDE</code> construct with a default stack
+address.  This permits the user to easily override the stack address
+using the <code>--defsym</code> option.  Here is an example:
+</p><div class="example">
+<pre class="example">  ${RELOCATING+ PROVIDE (__stack = 0x80000000);}
+</pre></div>
+<p>The value of the symbol <code>__stack</code> would then be used in the startup
+code to initialize the stack pointer.
+</p>
+<hr>
+<span id="linker-emulations"></span><div class="header">
+<p>
+Previous: <a href="#linker-scripts" accesskey="p" rel="prev">linker scripts</a>, Up: <a href="#Emulations" accesskey="u" rel="up">Emulations</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</p>
+</div>
+<span id="emultempl-scripts"></span><h3 class="section">2.3 <samp>emultempl</samp> scripts</h3>
+
+<p>Each linker target uses an <samp>emultempl</samp> script to generate the
+emulation code.  The name of the <samp>emultempl</samp> script is set by the
+<code>TEMPLATE_NAME</code> variable in the <samp>emulparams</samp> script.  If the
+<code>TEMPLATE_NAME</code> variable is not set, the default is
+&lsquo;<samp>generic</samp>&rsquo;.  If the value of <code>TEMPLATE_NAME</code> is <var>template</var>,
+<samp>genscripts.sh</samp> will use <samp>emultempl/<var>template</var>.em</samp>.
+</p>
+<p>Most targets use the generic <samp>emultempl</samp> script,
+<samp>emultempl/generic.em</samp>.  A different <samp>emultempl</samp> script is
+only needed if the linker must support unusual actions, such as linking
+against shared libraries.
+</p>
+<p>The <samp>emultempl</samp> script is normally written as a simple invocation
+of <code>cat</code> with a here document.  The document will use a few
+variable substitutions.  Typically each function names uses a
+substitution involving <code>EMULATION_NAME</code>, for ease of debugging when
+the linker supports multiple emulations.
+</p>
+<p>Every function and variable in the emitted file should be static.  The
+only globally visible object must be named
+<code>ld_<var>EMULATION_NAME</var>_emulation</code>, where <var>EMULATION_NAME</var> is
+the name of the emulation set in <samp>configure.tgt</samp> (this is also the
+name of the <samp>emulparams</samp> file without the <samp>.sh</samp> extension).
+The <samp>genscripts.sh</samp> script will set the shell variable
+<code>EMULATION_NAME</code> before invoking the <samp>emultempl</samp> script.
+</p>
+<p>The <code>ld_<var>EMULATION_NAME</var>_emulation</code> variable must be a
+<code>struct ld_emulation_xfer_struct</code>, as defined in <samp>ldemul.h</samp>.
+It defines a set of function pointers which are invoked by the linker,
+as well as strings for the emulation name (normally set from the shell
+variable <code>EMULATION_NAME</code> and the default BFD target name (normally
+set from the shell variable <code>OUTPUT_FORMAT</code> which is normally set
+by the <samp>emulparams</samp> file).
+</p>
+<p>The <samp>genscripts.sh</samp> script will set the shell variable
+<code>COMPILE_IN</code> when it invokes the <samp>emultempl</samp> script for the
+default emulation.  In this case, the <samp>emultempl</samp> script should
+include the linker scripts directly, and return them from the
+<code>get_scripts</code> entry point.  When the emulation is not the default,
+the <code>get_scripts</code> entry point should just return a file name.  See
+<samp>emultempl/generic.em</samp> for an example of how this is done.
+</p>
+<p>At some point, the linker emulation entry points should be documented.
+</p>
+<hr>
+<span id="Emulation-Walkthrough"></span><div class="header">
+<p>
+Next: <a href="#Architecture-Specific" accesskey="n" rel="next">Architecture Specific</a>, Previous: <a href="#Emulations" accesskey="p" rel="prev">Emulations</a>, Up: <a href="#Top" accesskey="u" rel="up">Top</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</p>
+</div>
+<span id="A-Walkthrough-of-a-Typical-Emulation"></span><h2 class="chapter">3 A Walkthrough of a Typical Emulation</h2>
+
+<p>This chapter is to help people who are new to the way emulations
+interact with the linker, or who are suddenly thrust into the position
+of having to work with existing emulations.  It will discuss the files
+you need to be aware of.  It will tell you when the given &quot;hooks&quot; in
+the emulation will be called.  It will, hopefully, give you enough
+information about when and how things happen that you&rsquo;ll be able to
+get by.  As always, the source is the definitive reference to this.
+</p>
+<p>The starting point for the linker is in <samp>ldmain.c</samp> where
+<code>main</code> is defined.  The bulk of the code that&rsquo;s emulation
+specific will initially be in <code>emultempl/<var>emulation</var>.em</code> but
+will end up in <code>e<var>emulation</var>.c</code> when the build is done.
+Most of the work to select and interface with emulations is in
+<code>ldemul.h</code> and <code>ldemul.c</code>.  Specifically, <code>ldemul.h</code>
+defines the <code>ld_emulation_xfer_struct</code> structure your emulation
+exports.
+</p>
+<p>Your emulation file exports a symbol
+<code>ld_<var>EMULATION_NAME</var>_emulation</code>.  If your emulation is
+selected (it usually is, since usually there&rsquo;s only one),
+<code>ldemul.c</code> sets the variable <var>ld_emulation</var> to point to it.
+<code>ldemul.c</code> also defines a number of API functions that interface
+to your emulation, like <code>ldemul_after_parse</code> which simply calls
+your <code>ld_<var>EMULATION</var>_emulation.after_parse</code> function.  For
+the rest of this section, the functions will be mentioned, but you
+should assume the indirect reference to your emulation also.
+</p>
+<p>We will also skip or gloss over parts of the link process that don&rsquo;t
+relate to emulations, like setting up internationalization.
+</p>
+<p>After initialization, <code>main</code> selects an emulation by pre-scanning
+the command-line arguments.  It calls <code>ldemul_choose_target</code> to
+choose a target.  If you set <code>choose_target</code> to
+<code>ldemul_default_target</code>, it picks your <code>target_name</code> by
+default.
+</p>
+<p><code>main</code> calls <code>ldemul_before_parse</code>, then <code>parse_args</code>.
+<code>parse_args</code> calls <code>ldemul_parse_args</code> for each arg, which
+must update the <code>getopt</code> globals if it recognizes the argument.
+If the emulation doesn&rsquo;t recognize it, then parse_args checks to see
+if it recognizes it.
+</p>
+<p>Now that the emulation has had access to all its command-line options,
+<code>main</code> calls <code>ldemul_set_symbols</code>.  This can be used for any
+initialization that may be affected by options.  It is also supposed
+to set up any variables needed by the emulation script.
+</p>
+<p><code>main</code> now calls <code>ldemul_get_script</code> to get the emulation
+script to use (based on arguments, no doubt, see <a href="#Emulations">Emulations</a>) and
+runs it.  While parsing, <code>ldgram.y</code> may call <code>ldemul_hll</code> or
+<code>ldemul_syslib</code> to handle the <code>HLL</code> or <code>SYSLIB</code>
+commands.  It may call <code>ldemul_unrecognized_file</code> if you asked
+the linker to link a file it doesn&rsquo;t recognize.  It will call
+<code>ldemul_recognized_file</code> for each file it does recognize, in case
+the emulation wants to handle some files specially.  All the while,
+it&rsquo;s loading the files (possibly calling
+<code>ldemul_open_dynamic_archive</code>) and symbols and stuff.  After it&rsquo;s
+done reading the script, <code>main</code> calls <code>ldemul_after_parse</code>.
+Use the after-parse hook to set up anything that depends on stuff the
+script might have set up, like the entry point.
+</p>
+<p><code>main</code> next calls <code>lang_process</code> in <code>ldlang.c</code>.  This
+appears to be the main core of the linking itself, as far as emulation
+hooks are concerned(*).  It first opens the output file&rsquo;s BFD, calling
+<code>ldemul_set_output_arch</code>, and calls
+<code>ldemul_create_output_section_statements</code> in case you need to use
+other means to find or create object files (i.e. shared libraries
+found on a path, or fake stub objects).  Despite the name, nobody
+creates output sections here.
+</p>
+<p>(*) In most cases, the BFD library does the bulk of the actual
+linking, handling symbol tables, symbol resolution, relocations, and
+building the final output file.  See the BFD reference for all the
+details.  Your emulation is usually concerned more with managing
+things at the file and section level, like &quot;put this here, add this
+section&quot;, etc.
+</p>
+<p>Next, the objects to be linked are opened and BFDs created for them,
+and <code>ldemul_after_open</code> is called.  At this point, you have all
+the objects and symbols loaded, but none of the data has been placed
+yet.
+</p>
+<p>Next comes the Big Linking Thingy (except for the parts BFD does).
+All input sections are mapped to output sections according to the
+script.  If a section doesn&rsquo;t get mapped by default,
+<code>ldemul_place_orphan</code> will get called to figure out where it goes.
+Next it figures out the offsets for each section, calling
+<code>ldemul_before_allocation</code> before and
+<code>ldemul_after_allocation</code> after deciding where each input section
+ends up in the output sections.
+</p>
+<p>The last part of <code>lang_process</code> is to figure out all the symbols&rsquo;
+values.  After assigning final values to the symbols,
+<code>ldemul_finish</code> is called, and after that, any undefined symbols
+are turned into fatal errors.
+</p>
+<p>OK, back to <code>main</code>, which calls <code>ldwrite</code> in
+<samp>ldwrite.c</samp>.  <code>ldwrite</code> calls BFD&rsquo;s final_link, which does
+all the relocation fixups and writes the output bfd to disk, and we&rsquo;re
+done.
+</p>
+<p>In summary,
+</p>
+<ul>
+<li> <code>main()</code> in <samp>ldmain.c</samp>
+</li><li> <samp>emultempl/<var>EMULATION</var>.em</samp> has your code
+</li><li> <code>ldemul_choose_target</code> (defaults to your <code>target_name</code>)
+</li><li> <code>ldemul_before_parse</code>
+</li><li> Parse argv, calls <code>ldemul_parse_args</code> for each
+</li><li> <code>ldemul_set_symbols</code>
+</li><li> <code>ldemul_get_script</code>
+</li><li> parse script
+
+<ul>
+<li> may call <code>ldemul_hll</code> or <code>ldemul_syslib</code>
+</li><li> may call <code>ldemul_open_dynamic_archive</code>
+</li></ul>
+
+</li><li> <code>ldemul_after_parse</code>
+</li><li> <code>lang_process()</code> in <samp>ldlang.c</samp>
+
+<ul>
+<li> create <code>output_bfd</code>
+</li><li> <code>ldemul_set_output_arch</code>
+</li><li> <code>ldemul_create_output_section_statements</code>
+</li><li> read objects, create input bfds - all symbols exist, but have no values
+</li><li> may call <code>ldemul_unrecognized_file</code>
+</li><li> will call <code>ldemul_recognized_file</code>
+</li><li> <code>ldemul_after_open</code>
+</li><li> map input sections to output sections
+</li><li> may call <code>ldemul_place_orphan</code> for remaining sections
+</li><li> <code>ldemul_before_allocation</code>
+</li><li> gives input sections offsets into output sections, places output sections
+</li><li> <code>ldemul_after_allocation</code> - section addresses valid
+</li><li> assigns values to symbols
+</li><li> <code>ldemul_finish</code> - symbol values valid
+</li></ul>
+
+</li><li> output bfd is written to disk
+
+</li></ul>
+
+<hr>
+<span id="Architecture-Specific"></span><div class="header">
+<p>
+Next: <a href="#GNU-Free-Documentation-License" accesskey="n" rel="next">GNU Free Documentation License</a>, Previous: <a href="#Emulation-Walkthrough" accesskey="p" rel="prev">Emulation Walkthrough</a>, Up: <a href="#Top" accesskey="u" rel="up">Top</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</p>
+</div>
+<span id="Some-Architecture-Specific-Notes"></span><h2 class="chapter">4 Some Architecture Specific Notes</h2>
+
+<p>This is the place for notes on the behavior of <code>ld</code> on
+specific platforms.  Currently, only Intel x86 is documented (and
+of that, only the auto-import behavior for DLLs).
+</p>
+<table class="menu" border="0" cellspacing="0">
+<tr><td align="left" valign="top">&bull; <a href="#ix86" accesskey="1">ix86</a></td><td>&nbsp;&nbsp;</td><td align="left" valign="top">Intel x86
+</td></tr>
+</table>
+
+<hr>
+<span id="ix86"></span><div class="header">
+<p>
+Up: <a href="#Architecture-Specific" accesskey="u" rel="up">Architecture Specific</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</p>
+</div>
+<span id="Intel-x86"></span><h3 class="section">4.1 Intel x86</h3>
+
+<dl compact="compact">
+<dd><p><code>ld</code> can create DLLs that operate with various runtimes available
+on a common x86 operating system.  These runtimes include native (using
+the mingw &quot;platform&quot;), cygwin, and pw.
+</p>
+</dd>
+<dt><em>auto-import from DLLs</em></dt>
+<dd><ol>
+<li> With this feature on, DLL clients can import variables from DLL
+without any concern from their side (for example, without any source
+code modifications).  Auto-import can be enabled using the
+<code>--enable-auto-import</code> flag, or disabled via the
+<code>--disable-auto-import</code> flag.  Auto-import is disabled by default.
+
+</li><li> This is done completely in bounds of the PE specification (to be fair,
+there&rsquo;s a minor violation of the spec at one point, but in practice
+auto-import works on all known variants of that common x86 operating
+system)  So, the resulting DLL can be used with any other PE
+compiler/linker.
+
+</li><li> Auto-import is fully compatible with standard import method, in which
+variables are decorated using attribute modifiers. Libraries of either
+type may be mixed together.
+
+</li><li> Overhead (space): 8 bytes per imported symbol, plus 20 for each
+reference to it; Overhead (load time): negligible; Overhead
+(virtual/physical memory): should be less than effect of DLL
+relocation.
+</li></ol>
+
+<p>Motivation
+</p>
+<p>The obvious and only way to get rid of dllimport insanity is
+to make client access variable directly in the DLL, bypassing
+the extra dereference imposed by ordinary DLL runtime linking.
+I.e., whenever client contains something like
+</p>
+<p><code>mov dll_var,%eax,</code>
+</p>
+<p>address of dll_var in the command should be relocated to point
+into loaded DLL. The aim is to make OS loader do so, and than
+make ld help with that.  Import section of PE made following
+way: there&rsquo;s a vector of structures each describing imports
+from particular DLL. Each such structure points to two other
+parallel vectors: one holding imported names, and one which
+will hold address of corresponding imported name. So, the
+solution is de-vectorize these structures, making import
+locations be sparse and pointing directly into code.
+</p>
+<p>Implementation
+</p>
+<p>For each reference of data symbol to be imported from DLL (to
+set of which belong symbols with name &lt;sym&gt;, if __imp_&lt;sym&gt; is
+found in implib), the import fixup entry is generated. That
+entry is of type IMAGE_IMPORT_DESCRIPTOR and stored in .idata$3
+subsection. Each fixup entry contains pointer to symbol&rsquo;s address
+within .text section (marked with __fuN_&lt;sym&gt; symbol, where N is
+integer), pointer to DLL name (so, DLL name is referenced by
+multiple entries), and pointer to symbol name thunk. Symbol name
+thunk is singleton vector (__nm_th_&lt;symbol&gt;) pointing to
+IMAGE_IMPORT_BY_NAME structure (__nm_&lt;symbol&gt;) directly containing
+imported name. Here comes that &quot;om the edge&quot; problem mentioned above:
+PE specification rambles that name vector (OriginalFirstThunk) should
+run in parallel with addresses vector (FirstThunk), i.e. that they
+should have same number of elements and terminated with zero. We violate
+this, since FirstThunk points directly into machine code. But in
+practice, OS loader implemented the sane way: it goes thru
+OriginalFirstThunk and puts addresses to FirstThunk, not something
+else. It once again should be noted that dll and symbol name
+structures are reused across fixup entries and should be there
+anyway to support standard import stuff, so sustained overhead is
+20 bytes per reference. Other question is whether having several
+IMAGE_IMPORT_DESCRIPTORS for the same DLL is possible. Answer is yes,
+it is done even by native compiler/linker (libth32&rsquo;s functions are in
+fact resident in windows9x kernel32.dll, so if you use it, you have
+two IMAGE_IMPORT_DESCRIPTORS for kernel32.dll). Yet other question is
+whether referencing the same PE structures several times is valid.
+The answer is why not, prohibiting that (detecting violation) would
+require more work on behalf of loader than not doing it.
+</p>
+</dd>
+</dl>
+
+<hr>
+<span id="GNU-Free-Documentation-License"></span><div class="header">
+<p>
+Previous: <a href="#Architecture-Specific" accesskey="p" rel="prev">Architecture Specific</a>, Up: <a href="#Top" accesskey="u" rel="up">Top</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</p>
+</div>
+<span id="GNU-Free-Documentation-License-1"></span><h2 class="chapter">5 GNU Free Documentation License</h2>
+
+<div align="center">Version 1.3, 3 November 2008
+</div>
+
+<div class="display">
+<pre class="display">Copyright &copy; 2000, 2001, 2002, 2007, 2008 Free Software Foundation, Inc.
+<a href="http://fsf.org/">http://fsf.org/</a>
+
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+</pre></div>
+
+<ol start="0">
+<li> PREAMBLE
+
+<p>The purpose of this License is to make a manual, textbook, or other
+functional and useful document <em>free</em> in the sense of freedom: to
+assure everyone the effective freedom to copy and redistribute it,
+with or without modifying it, either commercially or noncommercially.
+Secondarily, this License preserves for the author and publisher a way
+to get credit for their work, while not being considered responsible
+for modifications made by others.
+</p>
+<p>This License is a kind of &ldquo;copyleft&rdquo;, which means that derivative
+works of the document must themselves be free in the same sense.  It
+complements the GNU General Public License, which is a copyleft
+license designed for free software.
+</p>
+<p>We have designed this License in order to use it for manuals for free
+software, because free software needs free documentation: a free
+program should come with manuals providing the same freedoms that the
+software does.  But this License is not limited to software manuals;
+it can be used for any textual work, regardless of subject matter or
+whether it is published as a printed book.  We recommend this License
+principally for works whose purpose is instruction or reference.
+</p>
+</li><li> APPLICABILITY AND DEFINITIONS
+
+<p>This License applies to any manual or other work, in any medium, that
+contains a notice placed by the copyright holder saying it can be
+distributed under the terms of this License.  Such a notice grants a
+world-wide, royalty-free license, unlimited in duration, to use that
+work under the conditions stated herein.  The &ldquo;Document&rdquo;, below,
+refers to any such manual or work.  Any member of the public is a
+licensee, and is addressed as &ldquo;you&rdquo;.  You accept the license if you
+copy, modify or distribute the work in a way requiring permission
+under copyright law.
+</p>
+<p>A &ldquo;Modified Version&rdquo; of the Document means any work containing the
+Document or a portion of it, either copied verbatim, or with
+modifications and/or translated into another language.
+</p>
+<p>A &ldquo;Secondary Section&rdquo; is a named appendix or a front-matter section
+of the Document that deals exclusively with the relationship of the
+publishers or authors of the Document to the Document&rsquo;s overall
+subject (or to related matters) and contains nothing that could fall
+directly within that overall subject.  (Thus, if the Document is in
+part a textbook of mathematics, a Secondary Section may not explain
+any mathematics.)  The relationship could be a matter of historical
+connection with the subject or with related matters, or of legal,
+commercial, philosophical, ethical or political position regarding
+them.
+</p>
+<p>The &ldquo;Invariant Sections&rdquo; are certain Secondary Sections whose titles
+are designated, as being those of Invariant Sections, in the notice
+that says that the Document is released under this License.  If a
+section does not fit the above definition of Secondary then it is not
+allowed to be designated as Invariant.  The Document may contain zero
+Invariant Sections.  If the Document does not identify any Invariant
+Sections then there are none.
+</p>
+<p>The &ldquo;Cover Texts&rdquo; are certain short passages of text that are listed,
+as Front-Cover Texts or Back-Cover Texts, in the notice that says that
+the Document is released under this License.  A Front-Cover Text may
+be at most 5 words, and a Back-Cover Text may be at most 25 words.
+</p>
+<p>A &ldquo;Transparent&rdquo; copy of the Document means a machine-readable copy,
+represented in a format whose specification is available to the
+general public, that is suitable for revising the document
+straightforwardly with generic text editors or (for images composed of
+pixels) generic paint programs or (for drawings) some widely available
+drawing editor, and that is suitable for input to text formatters or
+for automatic translation to a variety of formats suitable for input
+to text formatters.  A copy made in an otherwise Transparent file
+format whose markup, or absence of markup, has been arranged to thwart
+or discourage subsequent modification by readers is not Transparent.
+An image format is not Transparent if used for any substantial amount
+of text.  A copy that is not &ldquo;Transparent&rdquo; is called &ldquo;Opaque&rdquo;.
+</p>
+<p>Examples of suitable formats for Transparent copies include plain
+<small>ASCII</small> without markup, Texinfo input format, LaTeX input
+format, <acronym>SGML</acronym> or <acronym>XML</acronym> using a publicly available
+<acronym>DTD</acronym>, and standard-conforming simple <acronym>HTML</acronym>,
+PostScript or <acronym>PDF</acronym> designed for human modification.  Examples
+of transparent image formats include <acronym>PNG</acronym>, <acronym>XCF</acronym> and
+<acronym>JPG</acronym>.  Opaque formats include proprietary formats that can be
+read and edited only by proprietary word processors, <acronym>SGML</acronym> or
+<acronym>XML</acronym> for which the <acronym>DTD</acronym> and/or processing tools are
+not generally available, and the machine-generated <acronym>HTML</acronym>,
+PostScript or <acronym>PDF</acronym> produced by some word processors for
+output purposes only.
+</p>
+<p>The &ldquo;Title Page&rdquo; means, for a printed book, the title page itself,
+plus such following pages as are needed to hold, legibly, the material
+this License requires to appear in the title page.  For works in
+formats which do not have any title page as such, &ldquo;Title Page&rdquo; means
+the text near the most prominent appearance of the work&rsquo;s title,
+preceding the beginning of the body of the text.
+</p>
+<p>The &ldquo;publisher&rdquo; means any person or entity that distributes copies
+of the Document to the public.
+</p>
+<p>A section &ldquo;Entitled XYZ&rdquo; means a named subunit of the Document whose
+title either is precisely XYZ or contains XYZ in parentheses following
+text that translates XYZ in another language.  (Here XYZ stands for a
+specific section name mentioned below, such as &ldquo;Acknowledgements&rdquo;,
+&ldquo;Dedications&rdquo;, &ldquo;Endorsements&rdquo;, or &ldquo;History&rdquo;.)  To &ldquo;Preserve the Title&rdquo;
+of such a section when you modify the Document means that it remains a
+section &ldquo;Entitled XYZ&rdquo; according to this definition.
+</p>
+<p>The Document may include Warranty Disclaimers next to the notice which
+states that this License applies to the Document.  These Warranty
+Disclaimers are considered to be included by reference in this
+License, but only as regards disclaiming warranties: any other
+implication that these Warranty Disclaimers may have is void and has
+no effect on the meaning of this License.
+</p>
+</li><li> VERBATIM COPYING
+
+<p>You may copy and distribute the Document in any medium, either
+commercially or noncommercially, provided that this License, the
+copyright notices, and the license notice saying this License applies
+to the Document are reproduced in all copies, and that you add no other
+conditions whatsoever to those of this License.  You may not use
+technical measures to obstruct or control the reading or further
+copying of the copies you make or distribute.  However, you may accept
+compensation in exchange for copies.  If you distribute a large enough
+number of copies you must also follow the conditions in section 3.
+</p>
+<p>You may also lend copies, under the same conditions stated above, and
+you may publicly display copies.
+</p>
+</li><li> COPYING IN QUANTITY
+
+<p>If you publish printed copies (or copies in media that commonly have
+printed covers) of the Document, numbering more than 100, and the
+Document&rsquo;s license notice requires Cover Texts, you must enclose the
+copies in covers that carry, clearly and legibly, all these Cover
+Texts: Front-Cover Texts on the front cover, and Back-Cover Texts on
+the back cover.  Both covers must also clearly and legibly identify
+you as the publisher of these copies.  The front cover must present
+the full title with all words of the title equally prominent and
+visible.  You may add other material on the covers in addition.
+Copying with changes limited to the covers, as long as they preserve
+the title of the Document and satisfy these conditions, can be treated
+as verbatim copying in other respects.
+</p>
+<p>If the required texts for either cover are too voluminous to fit
+legibly, you should put the first ones listed (as many as fit
+reasonably) on the actual cover, and continue the rest onto adjacent
+pages.
+</p>
+<p>If you publish or distribute Opaque copies of the Document numbering
+more than 100, you must either include a machine-readable Transparent
+copy along with each Opaque copy, or state in or with each Opaque copy
+a computer-network location from which the general network-using
+public has access to download using public-standard network protocols
+a complete Transparent copy of the Document, free of added material.
+If you use the latter option, you must take reasonably prudent steps,
+when you begin distribution of Opaque copies in quantity, to ensure
+that this Transparent copy will remain thus accessible at the stated
+location until at least one year after the last time you distribute an
+Opaque copy (directly or through your agents or retailers) of that
+edition to the public.
+</p>
+<p>It is requested, but not required, that you contact the authors of the
+Document well before redistributing any large number of copies, to give
+them a chance to provide you with an updated version of the Document.
+</p>
+</li><li> MODIFICATIONS
+
+<p>You may copy and distribute a Modified Version of the Document under
+the conditions of sections 2 and 3 above, provided that you release
+the Modified Version under precisely this License, with the Modified
+Version filling the role of the Document, thus licensing distribution
+and modification of the Modified Version to whoever possesses a copy
+of it.  In addition, you must do these things in the Modified Version:
+</p>
+<ol type="A" start="1">
+<li> Use in the Title Page (and on the covers, if any) a title distinct
+from that of the Document, and from those of previous versions
+(which should, if there were any, be listed in the History section
+of the Document).  You may use the same title as a previous version
+if the original publisher of that version gives permission.
+
+</li><li> List on the Title Page, as authors, one or more persons or entities
+responsible for authorship of the modifications in the Modified
+Version, together with at least five of the principal authors of the
+Document (all of its principal authors, if it has fewer than five),
+unless they release you from this requirement.
+
+</li><li> State on the Title page the name of the publisher of the
+Modified Version, as the publisher.
+
+</li><li> Preserve all the copyright notices of the Document.
+
+</li><li> Add an appropriate copyright notice for your modifications
+adjacent to the other copyright notices.
+
+</li><li> Include, immediately after the copyright notices, a license notice
+giving the public permission to use the Modified Version under the
+terms of this License, in the form shown in the Addendum below.
+
+</li><li> Preserve in that license notice the full lists of Invariant Sections
+and required Cover Texts given in the Document&rsquo;s license notice.
+
+</li><li> Include an unaltered copy of this License.
+
+</li><li> Preserve the section Entitled &ldquo;History&rdquo;, Preserve its Title, and add
+to it an item stating at least the title, year, new authors, and
+publisher of the Modified Version as given on the Title Page.  If
+there is no section Entitled &ldquo;History&rdquo; in the Document, create one
+stating the title, year, authors, and publisher of the Document as
+given on its Title Page, then add an item describing the Modified
+Version as stated in the previous sentence.
+
+</li><li> Preserve the network location, if any, given in the Document for
+public access to a Transparent copy of the Document, and likewise
+the network locations given in the Document for previous versions
+it was based on.  These may be placed in the &ldquo;History&rdquo; section.
+You may omit a network location for a work that was published at
+least four years before the Document itself, or if the original
+publisher of the version it refers to gives permission.
+
+</li><li> For any section Entitled &ldquo;Acknowledgements&rdquo; or &ldquo;Dedications&rdquo;, Preserve
+the Title of the section, and preserve in the section all the
+substance and tone of each of the contributor acknowledgements and/or
+dedications given therein.
+
+</li><li> Preserve all the Invariant Sections of the Document,
+unaltered in their text and in their titles.  Section numbers
+or the equivalent are not considered part of the section titles.
+
+</li><li> Delete any section Entitled &ldquo;Endorsements&rdquo;.  Such a section
+may not be included in the Modified Version.
+
+</li><li> Do not retitle any existing section to be Entitled &ldquo;Endorsements&rdquo; or
+to conflict in title with any Invariant Section.
+
+</li><li> Preserve any Warranty Disclaimers.
+</li></ol>
+
+<p>If the Modified Version includes new front-matter sections or
+appendices that qualify as Secondary Sections and contain no material
+copied from the Document, you may at your option designate some or all
+of these sections as invariant.  To do this, add their titles to the
+list of Invariant Sections in the Modified Version&rsquo;s license notice.
+These titles must be distinct from any other section titles.
+</p>
+<p>You may add a section Entitled &ldquo;Endorsements&rdquo;, provided it contains
+nothing but endorsements of your Modified Version by various
+parties&mdash;for example, statements of peer review or that the text has
+been approved by an organization as the authoritative definition of a
+standard.
+</p>
+<p>You may add a passage of up to five words as a Front-Cover Text, and a
+passage of up to 25 words as a Back-Cover Text, to the end of the list
+of Cover Texts in the Modified Version.  Only one passage of
+Front-Cover Text and one of Back-Cover Text may be added by (or
+through arrangements made by) any one entity.  If the Document already
+includes a cover text for the same cover, previously added by you or
+by arrangement made by the same entity you are acting on behalf of,
+you may not add another; but you may replace the old one, on explicit
+permission from the previous publisher that added the old one.
+</p>
+<p>The author(s) and publisher(s) of the Document do not by this License
+give permission to use their names for publicity for or to assert or
+imply endorsement of any Modified Version.
+</p>
+</li><li> COMBINING DOCUMENTS
+
+<p>You may combine the Document with other documents released under this
+License, under the terms defined in section 4 above for modified
+versions, provided that you include in the combination all of the
+Invariant Sections of all of the original documents, unmodified, and
+list them all as Invariant Sections of your combined work in its
+license notice, and that you preserve all their Warranty Disclaimers.
+</p>
+<p>The combined work need only contain one copy of this License, and
+multiple identical Invariant Sections may be replaced with a single
+copy.  If there are multiple Invariant Sections with the same name but
+different contents, make the title of each such section unique by
+adding at the end of it, in parentheses, the name of the original
+author or publisher of that section if known, or else a unique number.
+Make the same adjustment to the section titles in the list of
+Invariant Sections in the license notice of the combined work.
+</p>
+<p>In the combination, you must combine any sections Entitled &ldquo;History&rdquo;
+in the various original documents, forming one section Entitled
+&ldquo;History&rdquo;; likewise combine any sections Entitled &ldquo;Acknowledgements&rdquo;,
+and any sections Entitled &ldquo;Dedications&rdquo;.  You must delete all
+sections Entitled &ldquo;Endorsements.&rdquo;
+</p>
+</li><li> COLLECTIONS OF DOCUMENTS
+
+<p>You may make a collection consisting of the Document and other documents
+released under this License, and replace the individual copies of this
+License in the various documents with a single copy that is included in
+the collection, provided that you follow the rules of this License for
+verbatim copying of each of the documents in all other respects.
+</p>
+<p>You may extract a single document from such a collection, and distribute
+it individually under this License, provided you insert a copy of this
+License into the extracted document, and follow this License in all
+other respects regarding verbatim copying of that document.
+</p>
+</li><li> AGGREGATION WITH INDEPENDENT WORKS
+
+<p>A compilation of the Document or its derivatives with other separate
+and independent documents or works, in or on a volume of a storage or
+distribution medium, is called an &ldquo;aggregate&rdquo; if the copyright
+resulting from the compilation is not used to limit the legal rights
+of the compilation&rsquo;s users beyond what the individual works permit.
+When the Document is included in an aggregate, this License does not
+apply to the other works in the aggregate which are not themselves
+derivative works of the Document.
+</p>
+<p>If the Cover Text requirement of section 3 is applicable to these
+copies of the Document, then if the Document is less than one half of
+the entire aggregate, the Document&rsquo;s Cover Texts may be placed on
+covers that bracket the Document within the aggregate, or the
+electronic equivalent of covers if the Document is in electronic form.
+Otherwise they must appear on printed covers that bracket the whole
+aggregate.
+</p>
+</li><li> TRANSLATION
+
+<p>Translation is considered a kind of modification, so you may
+distribute translations of the Document under the terms of section 4.
+Replacing Invariant Sections with translations requires special
+permission from their copyright holders, but you may include
+translations of some or all Invariant Sections in addition to the
+original versions of these Invariant Sections.  You may include a
+translation of this License, and all the license notices in the
+Document, and any Warranty Disclaimers, provided that you also include
+the original English version of this License and the original versions
+of those notices and disclaimers.  In case of a disagreement between
+the translation and the original version of this License or a notice
+or disclaimer, the original version will prevail.
+</p>
+<p>If a section in the Document is Entitled &ldquo;Acknowledgements&rdquo;,
+&ldquo;Dedications&rdquo;, or &ldquo;History&rdquo;, the requirement (section 4) to Preserve
+its Title (section 1) will typically require changing the actual
+title.
+</p>
+</li><li> TERMINATION
+
+<p>You may not copy, modify, sublicense, or distribute the Document
+except as expressly provided under this License.  Any attempt
+otherwise to copy, modify, sublicense, or distribute it is void, and
+will automatically terminate your rights under this License.
+</p>
+<p>However, if you cease all violation of this License, then your license
+from a particular copyright holder is reinstated (a) provisionally,
+unless and until the copyright holder explicitly and finally
+terminates your license, and (b) permanently, if the copyright holder
+fails to notify you of the violation by some reasonable means prior to
+60 days after the cessation.
+</p>
+<p>Moreover, your license from a particular copyright holder is
+reinstated permanently if the copyright holder notifies you of the
+violation by some reasonable means, this is the first time you have
+received notice of violation of this License (for any work) from that
+copyright holder, and you cure the violation prior to 30 days after
+your receipt of the notice.
+</p>
+<p>Termination of your rights under this section does not terminate the
+licenses of parties who have received copies or rights from you under
+this License.  If your rights have been terminated and not permanently
+reinstated, receipt of a copy of some or all of the same material does
+not give you any rights to use it.
+</p>
+</li><li> FUTURE REVISIONS OF THIS LICENSE
+
+<p>The Free Software Foundation may publish new, revised versions
+of the GNU Free Documentation License from time to time.  Such new
+versions will be similar in spirit to the present version, but may
+differ in detail to address new problems or concerns.  See
+<a href="http://www.gnu.org/copyleft/">http://www.gnu.org/copyleft/</a>.
+</p>
+<p>Each version of the License is given a distinguishing version number.
+If the Document specifies that a particular numbered version of this
+License &ldquo;or any later version&rdquo; applies to it, you have the option of
+following the terms and conditions either of that specified version or
+of any later version that has been published (not as a draft) by the
+Free Software Foundation.  If the Document does not specify a version
+number of this License, you may choose any version ever published (not
+as a draft) by the Free Software Foundation.  If the Document
+specifies that a proxy can decide which future versions of this
+License can be used, that proxy&rsquo;s public statement of acceptance of a
+version permanently authorizes you to choose that version for the
+Document.
+</p>
+</li><li> RELICENSING
+
+<p>&ldquo;Massive Multiauthor Collaboration Site&rdquo; (or &ldquo;MMC Site&rdquo;) means any
+World Wide Web server that publishes copyrightable works and also
+provides prominent facilities for anybody to edit those works.  A
+public wiki that anybody can edit is an example of such a server.  A
+&ldquo;Massive Multiauthor Collaboration&rdquo; (or &ldquo;MMC&rdquo;) contained in the
+site means any set of copyrightable works thus published on the MMC
+site.
+</p>
+<p>&ldquo;CC-BY-SA&rdquo; means the Creative Commons Attribution-Share Alike 3.0
+license published by Creative Commons Corporation, a not-for-profit
+corporation with a principal place of business in San Francisco,
+California, as well as future copyleft versions of that license
+published by that same organization.
+</p>
+<p>&ldquo;Incorporate&rdquo; means to publish or republish a Document, in whole or
+in part, as part of another Document.
+</p>
+<p>An MMC is &ldquo;eligible for relicensing&rdquo; if it is licensed under this
+License, and if all works that were first published under this License
+somewhere other than this MMC, and subsequently incorporated in whole
+or in part into the MMC, (1) had no cover texts or invariant sections,
+and (2) were thus incorporated prior to November 1, 2008.
+</p>
+<p>The operator of an MMC Site may republish an MMC contained in the site
+under CC-BY-SA on the same site at any time before August 1, 2009,
+provided the MMC is eligible for relicensing.
+</p>
+</li></ol>
+
+<span id="ADDENDUM_003a-How-to-use-this-License-for-your-documents"></span><h3 class="heading">ADDENDUM: How to use this License for your documents</h3>
+
+<p>To use this License in a document you have written, include a copy of
+the License in the document and put the following copyright and
+license notices just after the title page:
+</p>
+<div class="example">
+<pre class="example">  Copyright (C)  <var>year</var>  <var>your name</var>.
+  Permission is granted to copy, distribute and/or modify this document
+  under the terms of the GNU Free Documentation License, Version 1.3
+  or any later version published by the Free Software Foundation;
+  with no Invariant Sections, no Front-Cover Texts, and no Back-Cover
+  Texts.  A copy of the license is included in the section entitled ``GNU
+  Free Documentation License''.
+</pre></div>
+
+<p>If you have Invariant Sections, Front-Cover Texts and Back-Cover Texts,
+replace the &ldquo;with&hellip;Texts.&rdquo; line with this:
+</p>
+<div class="example">
+<pre class="example">    with the Invariant Sections being <var>list their titles</var>, with
+    the Front-Cover Texts being <var>list</var>, and with the Back-Cover Texts
+    being <var>list</var>.
+</pre></div>
+
+<p>If you have Invariant Sections without Cover Texts, or some other
+combination of the three, merge those two alternatives to suit the
+situation.
+</p>
+<p>If your document contains nontrivial examples of program code, we
+recommend releasing these examples in parallel under your choice of
+free software license, such as the GNU General Public License,
+to permit their use in free software.
+</p>
+
+<span id="SEC_Contents"></span>
+<h2 class="contents-heading">Table of Contents</h2>
+
+<div class="contents">
+
+<ul class="no-bullet">
+  <li><a id="toc-The-README-File" href="#README">1 The <samp>README</samp> File</a></li>
+  <li><a id="toc-How-linker-emulations-are-generated" href="#Emulations">2 How linker emulations are generated</a>
+  <ul class="no-bullet">
+    <li><a id="toc-emulparams-scripts" href="#emulation-parameters">2.1 <samp>emulparams</samp> scripts</a></li>
+    <li><a id="toc-scripttempl-scripts" href="#linker-scripts">2.2 <samp>scripttempl</samp> scripts</a></li>
+    <li><a id="toc-emultempl-scripts" href="#linker-emulations">2.3 <samp>emultempl</samp> scripts</a></li>
+  </ul></li>
+  <li><a id="toc-A-Walkthrough-of-a-Typical-Emulation" href="#Emulation-Walkthrough">3 A Walkthrough of a Typical Emulation</a></li>
+  <li><a id="toc-Some-Architecture-Specific-Notes" href="#Architecture-Specific">4 Some Architecture Specific Notes</a>
+  <ul class="no-bullet">
+    <li><a id="toc-Intel-x86" href="#ix86">4.1 Intel x86</a></li>
+  </ul></li>
+  <li><a id="toc-GNU-Free-Documentation-License-1" href="#GNU-Free-Documentation-License">5 GNU Free Documentation License</a></li>
+</ul>
+</div>
+
+<hr>
+
+
+
+</body>
+</html>

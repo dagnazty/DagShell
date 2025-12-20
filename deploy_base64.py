@@ -169,6 +169,26 @@ def deploy(target_ip, target_port):
             print("------------------------------------------------")
             print("Opening firewall port 8443...")
             send_cmd(s, "iptables -I INPUT -p tcp --dport 8443 -j ACCEPT", wait=0.5)
+            
+            # Disable Orbic captive portal (stops redirect to 192.168.1.1)
+            print("Disabling captive portal...")
+            send_cmd(s, "iptables -t nat -F PREROUTING", wait=0.3)  # Flush redirect rules
+            send_cmd(s, "echo 'nameserver 8.8.8.8' > /etc/resolv.conf", wait=0.3)
+            send_cmd(s, "echo 'nameserver 1.1.1.1' >> /etc/resolv.conf", wait=0.3)
+            
+            # Configure dnsmasq to forward DNS (CRITICAL - clients use 192.168.1.1 as DNS)
+            send_cmd(s, "echo 'server=8.8.8.8' > /data/dnsmasq.conf", wait=0.3)
+            send_cmd(s, "echo 'server=1.1.1.1' >> /data/dnsmasq.conf", wait=0.3)
+            send_cmd(s, "killall -HUP dnsmasq 2>/dev/null", wait=0.5)
+            
+            # Enable internet passthrough for connected WiFi clients
+            # Note: Hotspot is on bridge0, cellular is on rmnet_data0
+            print("Enabling internet passthrough (NAT)...")
+            send_cmd(s, "echo 1 > /proc/sys/net/ipv4/ip_forward", wait=0.3)
+            send_cmd(s, "iptables -t nat -A POSTROUTING -o rmnet_data0 -j MASQUERADE", wait=0.3)
+            send_cmd(s, "iptables -A FORWARD -i bridge0 -o rmnet_data0 -j ACCEPT", wait=0.3)
+            send_cmd(s, "iptables -A FORWARD -i rmnet_data0 -o bridge0 -m state --state RELATED,ESTABLISHED -j ACCEPT", wait=0.3)
+            
             print("Restarting orbic_app...")
             send_cmd(s, "pkill -f orbic_app", wait=1)
             send_cmd(s, f"{REMOTE_FILE} &", wait=1)

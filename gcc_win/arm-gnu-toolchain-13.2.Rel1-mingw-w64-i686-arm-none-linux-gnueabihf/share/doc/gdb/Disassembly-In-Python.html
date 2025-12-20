@@ -1,0 +1,406 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<!-- Copyright (C) 1988-2023 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Free Software" and "Free Software Needs
+Free Documentation", with the Front-Cover Texts being "A GNU Manual,"
+and with the Back-Cover Texts as in (a) below.
+
+(a) The FSF's Back-Cover Text is: "You are free to copy and modify
+this GNU Manual.  Buying copies from GNU Press supports the FSF in
+developing GNU and promoting software freedom." -->
+<!-- Created by GNU Texinfo 6.7, http://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Disassembly In Python (Debugging with GDB)</title>
+
+<meta name="description" content="Disassembly In Python (Debugging with GDB)">
+<meta name="keywords" content="Disassembly In Python (Debugging with GDB)">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="Generator" content="makeinfo">
+<link href="index.html" rel="start" title="Top">
+<link href="Concept-Index.html" rel="index" title="Concept Index">
+<link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
+<link href="Python-API.html" rel="up" title="Python API">
+<link href="Python-Auto_002dloading.html" rel="next" title="Python Auto-loading">
+<link href="TUI-Windows-In-Python.html" rel="prev" title="TUI Windows In Python">
+<style type="text/css">
+<!--
+a.summary-letter {text-decoration: none}
+blockquote.indentedblock {margin-right: 0em}
+div.display {margin-left: 3.2em}
+div.example {margin-left: 3.2em}
+div.lisp {margin-left: 3.2em}
+kbd {font-style: oblique}
+pre.display {font-family: inherit}
+pre.format {font-family: inherit}
+pre.menu-comment {font-family: serif}
+pre.menu-preformatted {font-family: serif}
+span.nolinebreak {white-space: nowrap}
+span.roman {font-family: initial; font-weight: normal}
+span.sansserif {font-family: sans-serif; font-weight: normal}
+ul.no-bullet {list-style: none}
+-->
+</style>
+
+
+</head>
+
+<body lang="en">
+<span id="Disassembly-In-Python"></span><div class="header">
+<p>
+Previous: <a href="TUI-Windows-In-Python.html" accesskey="p" rel="prev">TUI Windows In Python</a>, Up: <a href="Python-API.html" accesskey="u" rel="up">Python API</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<span id="Instruction-Disassembly-In-Python"></span><h4 class="subsubsection">23.3.2.38 Instruction Disassembly In Python</h4>
+<span id="index-python-instruction-disassembly"></span>
+
+<p><small>GDB</small>&rsquo;s builtin disassembler can be extended, or even replaced,
+using the Python API.  The disassembler related features are contained
+within the <code>gdb.disassembler</code> module:
+</p>
+<dl>
+<dt id="index-gdb_002edisassembler_002eDisassembleInfo">class: <strong>gdb.disassembler.DisassembleInfo</strong></dt>
+<dd><p>Disassembly is driven by instances of this class.  Each time
+<small>GDB</small> needs to disassemble an instruction, an instance of this
+class is created and passed to a registered disassembler.  The
+disassembler is then responsible for disassembling an instruction and
+returning a result.
+</p>
+<p>Instances of this type are usually created within <small>GDB</small>,
+however, it is possible to create a copy of an instance of this type,
+see the description of <code>__init__</code> for more details.
+</p>
+<p>This class has the following properties and methods:
+</p>
+<dl>
+<dt id="index-DisassembleInfo_002eaddress">Variable: <strong>DisassembleInfo.address</strong></dt>
+<dd><p>A read-only integer containing the address at which <small>GDB</small>
+wishes to disassemble a single instruction.
+</p></dd></dl>
+
+<dl>
+<dt id="index-DisassembleInfo_002earchitecture">Variable: <strong>DisassembleInfo.architecture</strong></dt>
+<dd><p>The <code>gdb.Architecture</code> (see <a href="Architectures-In-Python.html">Architectures In Python</a>) for
+which <small>GDB</small> is currently disassembling, this property is
+read-only.
+</p></dd></dl>
+
+<dl>
+<dt id="index-DisassembleInfo_002eprogspace">Variable: <strong>DisassembleInfo.progspace</strong></dt>
+<dd><p>The <code>gdb.Progspace</code> (see <a href="Progspaces-In-Python.html">Program Spaces
+In Python</a>) for which <small>GDB</small> is currently disassembling, this
+property is read-only.
+</p></dd></dl>
+
+<dl>
+<dt id="index-DisassembleInfo_002eis_005fvalid">Function: <strong>DisassembleInfo.is_valid</strong> <em>()</em></dt>
+<dd><p>Returns <code>True</code> if the <code>DisassembleInfo</code> object is valid,
+<code>False</code> if not.  A <code>DisassembleInfo</code> object will become
+invalid once the disassembly call for which the <code>DisassembleInfo</code>
+was created, has returned.  Calling other <code>DisassembleInfo</code>
+methods, or accessing <code>DisassembleInfo</code> properties, will raise a
+<code>RuntimeError</code> exception if it is invalid.
+</p></dd></dl>
+
+<dl>
+<dt id="index-DisassembleInfo_002e_005f_005finit_005f_005f">Function: <strong>DisassembleInfo.__init__</strong> <em>(info)</em></dt>
+<dd><p>This can be used to create a new <code>DisassembleInfo</code> object that is
+a copy of <var>info</var>.  The copy will have the same <code>address</code>,
+<code>architecture</code>, and <code>progspace</code> values as <var>info</var>, and
+will become invalid at the same time as <var>info</var>.
+</p>
+<p>This method exists so that sub-classes of <code>DisassembleInfo</code> can
+be created, these sub-classes must be initialized as copies of an
+existing <code>DisassembleInfo</code> object, but sub-classes might choose
+to override the <code>read_memory</code> method, and so control what
+<small>GDB</small> sees when reading from memory
+(see <a href="#builtin_005fdisassemble">builtin_disassemble</a>).
+</p></dd></dl>
+
+<dl>
+<dt id="index-DisassembleInfo_002eread_005fmemory">Function: <strong>DisassembleInfo.read_memory</strong> <em>(length, offset)</em></dt>
+<dd><p>This method allows the disassembler to read the bytes of the
+instruction to be disassembled.  The method reads <var>length</var> bytes,
+starting at <var>offset</var> from
+<code>DisassembleInfo.address</code>.
+</p>
+<p>It is important that the disassembler read the instruction bytes using
+this method, rather than reading inferior memory directly, as in some
+cases <small>GDB</small> disassembles from an internal buffer rather than
+directly from inferior memory, calling this method handles this
+detail.
+</p>
+<p>Returns a buffer object, which behaves much like an array or a string,
+just as <code>Inferior.read_memory</code> does
+(see <a href="Inferiors-In-Python.html#gdbpy_005finferior_005fread_005fmemory">Inferior.read_memory</a>).  The
+length of the returned buffer will always be exactly <var>length</var>.
+</p>
+<p>If <small>GDB</small> is unable to read the required memory then a
+<code>gdb.MemoryError</code> exception is raised (see <a href="Exception-Handling.html">Exception Handling</a>).
+</p>
+<p>This method can be overridden by a sub-class in order to control what
+<small>GDB</small> sees when reading from memory
+(see <a href="#builtin_005fdisassemble">builtin_disassemble</a>).  When overriding this method it is
+important to understand how <code>builtin_disassemble</code> makes use of
+this method.
+</p>
+<p>While disassembling a single instruction there could be multiple calls
+to this method, and the same bytes might be read multiple times.  Any
+single call might only read a subset of the total instruction bytes.
+</p>
+<p>If an implementation of <code>read_memory</code> is unable to read the
+requested memory contents, for example, if there&rsquo;s a request to read
+from an invalid memory address, then a <code>gdb.MemoryError</code> should
+be raised.
+</p>
+<p>Raising a <code>MemoryError</code> inside <code>read_memory</code> does not
+automatically mean a <code>MemoryError</code> will be raised by
+<code>builtin_disassemble</code>.  It is possible the <small>GDB</small>&rsquo;s builtin
+disassembler is probing to see how many bytes are available.  When
+<code>read_memory</code> raises the <code>MemoryError</code> the builtin
+disassembler might be able to perform a complete disassembly with the
+bytes it has available, in this case <code>builtin_disassemble</code> will
+not itself raise a <code>MemoryError</code>.
+</p>
+<p>Any other exception type raised in <code>read_memory</code> will propagate
+back and be re-raised by <code>builtin_disassemble</code>.
+</p></dd></dl>
+</dd></dl>
+
+<dl>
+<dt id="index-Disassembler">class: <strong>Disassembler</strong></dt>
+<dd><p>This is a base class from which all user implemented disassemblers
+must inherit.
+</p>
+<dl>
+<dt id="index-Disassembler_002e_005f_005finit_005f_005f">Function: <strong>Disassembler.__init__</strong> <em>(name)</em></dt>
+<dd><p>The constructor takes <var>name</var>, a string, which should be a short
+name for this disassembler.
+</p></dd></dl>
+
+<dl>
+<dt id="index-Disassembler_002e_005f_005fcall_005f_005f">Function: <strong>Disassembler.__call__</strong> <em>(info)</em></dt>
+<dd><p>The <code>__call__</code> method must be overridden by sub-classes to
+perform disassembly.  Calling <code>__call__</code> on this base class will
+raise a <code>NotImplementedError</code> exception.
+</p>
+<p>The <var>info</var> argument is an instance of <code>DisassembleInfo</code>, and
+describes the instruction that <small>GDB</small> wants disassembling.
+</p>
+<p>If this function returns <code>None</code>, this indicates to <small>GDB</small>
+that this sub-class doesn&rsquo;t wish to disassemble the requested
+instruction.  <small>GDB</small> will then use its builtin disassembler to
+perform the disassembly.
+</p>
+<p>Alternatively, this function can return a <code>DisassemblerResult</code>
+that represents the disassembled instruction, this type is described
+in more detail below.
+</p>
+<p>The <code>__call__</code> method can raise a <code>gdb.MemoryError</code>
+exception (see <a href="Exception-Handling.html">Exception Handling</a>) to indicate to <small>GDB</small>
+that there was a problem accessing the required memory, this will then
+be displayed by <small>GDB</small> within the disassembler output.
+</p>
+<p>Ideally, the only three outcomes from invoking <code>__call__</code> would
+be a return of <code>None</code>, a successful disassembly returned in a
+<code>DisassemblerResult</code>, or a <code>MemoryError</code> indicating that
+there was a problem reading memory.
+</p>
+<p>However, as an implementation of <code>__call__</code> could fail due to
+other reasons, e.g. some external resource required to perform
+disassembly is temporarily unavailable, then, if <code>__call__</code>
+raises a <code>GdbError</code>, the exception will be converted to a string
+and printed at the end of the disassembly output, the disassembly
+request will then stop.
+</p>
+<p>Any other exception type raised by the <code>__call__</code> method is
+considered an error in the user code, the exception will be printed to
+the error stream according to the <kbd>set python print-stack</kbd> setting
+(see <a href="Python-Commands.html#set_005fpython_005fprint_005fstack"><kbd>set python print-stack</kbd></a>).
+</p></dd></dl>
+</dd></dl>
+
+<dl>
+<dt id="index-DisassemblerResult">class: <strong>DisassemblerResult</strong></dt>
+<dd><p>This class is used to hold the result of calling
+<code><span class="nolinebreak">Disassembler.__call__</span></code><!-- /@w -->, and represents a single disassembled
+instruction.  This class has the following properties and methods:
+</p>
+<dl>
+<dt id="index-DisassemblerResult_002e_005f_005finit_005f_005f">Function: <strong>DisassemblerResult.__init__</strong> <em>(<var>length</var>, <var>string</var>)</em></dt>
+<dd><p>Initialize an instance of this class, <var>length</var> is the length of
+the disassembled instruction in bytes, which must be greater than
+zero, and <var>string</var> is a non-empty string that represents the
+disassembled instruction.
+</p></dd></dl>
+
+<dl>
+<dt id="index-DisassemblerResult_002elength">Variable: <strong>DisassemblerResult.length</strong></dt>
+<dd><p>A read-only property containing the length of the disassembled
+instruction in bytes, this will always be greater than zero.
+</p></dd></dl>
+
+<dl>
+<dt id="index-DisassemblerResult_002estring">Variable: <strong>DisassemblerResult.string</strong></dt>
+<dd><p>A read-only property containing a non-empty string representing the
+disassembled instruction.
+</p></dd></dl>
+</dd></dl>
+
+<p>The following functions are also contained in the
+<code>gdb.disassembler</code> module:
+</p>
+<dl>
+<dt id="index-register_005fdisassembler">Function: <strong>register_disassembler</strong> <em>(disassembler, architecture)</em></dt>
+<dd><p>The <var>disassembler</var> must be a sub-class of
+<code>gdb.disassembler.Disassembler</code> or <code>None</code>.
+</p>
+<p>The optional <var>architecture</var> is either a string, or the value
+<code>None</code>.  If it is a string, then it should be the name of an
+architecture known to <small>GDB</small>, as returned either from
+<code>gdb.Architecture.name</code>
+(see <a href="Architectures-In-Python.html#gdbpy_005farchitecture_005fname">gdb.Architecture.name</a>), or from
+<code>gdb.architecture_names</code>
+(see <a href="Basic-Python.html#gdb_005farchitecture_005fnames">gdb.architecture_names</a>).
+</p>
+<p>The <var>disassembler</var> will be installed for the architecture named by
+<var>architecture</var>, or if <var>architecture</var> is <code>None</code>, then
+<var>disassembler</var> will be installed as a global disassembler for use
+by all architectures.
+</p>
+<span id="index-disassembler-in-Python_002c-global-vs_002e-specific"></span>
+<span id="index-search-order-for-disassembler-in-Python"></span>
+<span id="index-look-up-of-disassembler-in-Python"></span>
+<p><small>GDB</small> only records a single disassembler for each architecture,
+and a single global disassembler.  Calling
+<code>register_disassembler</code> for an architecture, or for the global
+disassembler, will replace any existing disassembler registered for
+that <var>architecture</var> value.  The previous disassembler is returned.
+</p>
+<p>If <var>disassembler</var> is <code>None</code> then any disassembler currently
+registered for <var>architecture</var> is deregistered and returned.
+</p>
+<p>When <small>GDB</small> is looking for a disassembler to use, <small>GDB</small>
+first looks for an architecture specific disassembler.  If none has
+been registered then <small>GDB</small> looks for a global disassembler (one
+registered with <var>architecture</var> set to <code>None</code>).  Only one
+disassembler is called to perform disassembly, so, if there is both an
+architecture specific disassembler, and a global disassembler
+registered, it is the architecture specific disassembler that will be
+used.
+</p>
+<p><small>GDB</small> tracks the architecture specific, and global
+disassemblers separately, so it doesn&rsquo;t matter in which order
+disassemblers are created or registered; an architecture specific
+disassembler, if present, will always be used in preference to a
+global disassembler.
+</p>
+<p>You can use the <kbd>maint info python-disassemblers</kbd> command
+(see <a href="Maintenance-Commands.html#maint-info-python_002ddisassemblers">maint info python-disassemblers</a>) to see which disassemblers
+have been registered.
+</p></dd></dl>
+
+<span id="builtin_005fdisassemble"></span><dl>
+<dt id="index-builtin_005fdisassemble">Function: <strong>builtin_disassemble</strong> <em>(info)</em></dt>
+<dd><p>This function calls back into <small>GDB</small>&rsquo;s builtin disassembler to
+disassemble the instruction identified by <var>info</var>, an instance, or
+sub-class, of <code>DisassembleInfo</code>.
+</p>
+<p>When the builtin disassembler needs to read memory the
+<code>read_memory</code> method on <var>info</var> will be called.  By
+sub-classing <code>DisassembleInfo</code> and overriding the
+<code>read_memory</code> method, it is possible to intercept calls to
+<code>read_memory</code> from the builtin disassembler, and to modify the
+values returned.
+</p>
+<p>It is important to understand that, even when
+<code>DisassembleInfo.read_memory</code> raises a <code>gdb.MemoryError</code>, it
+is the internal disassembler itself that reports the memory error to
+<small>GDB</small>.  The reason for this is that the disassembler might
+probe memory to see if a byte is readable or not; if the byte can&rsquo;t be
+read then the disassembler may choose not to report an error, but
+instead to disassemble the bytes that it does have available.
+</p>
+<p>If the builtin disassembler is successful then an instance of
+<code>DisassemblerResult</code> is returned from <code>builtin_disassemble</code>,
+alternatively, if something goes wrong, an exception will be raised.
+</p>
+<p>A <code>MemoryError</code> will be raised if <code>builtin_disassemble</code> is
+unable to read some memory that is required in order to perform
+disassembly correctly.
+</p>
+<p>Any exception that is not a <code>MemoryError</code>, that is raised in a
+call to <code>read_memory</code>, will pass through
+<code>builtin_disassemble</code>, and be visible to the caller.
+</p>
+<p>Finally, there are a few cases where <small>GDB</small>&rsquo;s builtin
+disassembler can fail for reasons that are not covered by
+<code>MemoryError</code>.  In these cases, a <code>GdbError</code> will be raised.
+The contents of the exception will be a string describing the problem
+the disassembler encountered.
+</p></dd></dl>
+
+<p>Here is an example that registers a global disassembler.  The new
+disassembler invokes the builtin disassembler, and then adds a
+comment, <code>## Comment</code>, to each line of disassembly output:
+</p>
+<div class="example">
+<pre class="example">class ExampleDisassembler(gdb.disassembler.Disassembler):
+    def __init__(self):
+        super().__init__(&quot;ExampleDisassembler&quot;)
+
+    def __call__(self, info):
+        result = gdb.disassembler.builtin_disassemble(info)
+        length = result.length
+        text = result.string + &quot;\t## Comment&quot;
+        return gdb.disassembler.DisassemblerResult(length, text)
+
+gdb.disassembler.register_disassembler(ExampleDisassembler())
+</pre></div>
+
+<p>The following example creates a sub-class of <code>DisassembleInfo</code> in
+order to intercept the <code>read_memory</code> calls, within
+<code>read_memory</code> any bytes read from memory have the two 4-bit
+nibbles swapped around.  This isn&rsquo;t a very useful adjustment, but
+serves as an example.
+</p>
+<div class="example">
+<pre class="example">class MyInfo(gdb.disassembler.DisassembleInfo):
+    def __init__(self, info):
+        super().__init__(info)
+
+    def read_memory(self, length, offset):
+        buffer = super().read_memory(length, offset)
+        result = bytearray()
+        for b in buffer:
+            v = int.from_bytes(b, 'little')
+            v = (v &lt;&lt; 4) &amp; 0xf0 | (v &gt;&gt; 4)
+            result.append(v)
+        return memoryview(result)
+
+class NibbleSwapDisassembler(gdb.disassembler.Disassembler):
+    def __init__(self):
+        super().__init__(&quot;NibbleSwapDisassembler&quot;)
+
+    def __call__(self, info):
+        info = MyInfo(info)
+        return gdb.disassembler.builtin_disassemble(info)
+
+gdb.disassembler.register_disassembler(NibbleSwapDisassembler())
+</pre></div>
+
+<hr>
+<div class="header">
+<p>
+Previous: <a href="TUI-Windows-In-Python.html" accesskey="p" rel="prev">TUI Windows In Python</a>, Up: <a href="Python-API.html" accesskey="u" rel="up">Python API</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Concept-Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+
+
+
+</body>
+</html>
