@@ -354,6 +354,35 @@ void handle_client(br_sslio_context *ioc) {
         
         return;
     }
+    
+    
+    // API: Get log content for AJAX refresh
+    if (strstr(buffer, "cmd=get_log")) {
+        char *log_content = malloc(8192);
+        if (log_content) {
+            log_content[0] = '\0';
+            FILE *fp = popen("tail -30 /data/dagshell.log 2>/dev/null", "r");
+            if (fp) {
+                size_t total = 0;
+                char line[256];
+                while (fgets(line, sizeof(line), fp)) {
+                    int len = strlen(line);
+                    if (total + len < 8000) {
+                        strcpy(log_content + total, line);
+                        total += len;
+                    }
+                }
+                pclose(fp);
+            }
+            char header[128];
+            snprintf(header, sizeof(header), "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: %d\r\n\r\n", (int)strlen(log_content));
+            br_sslio_write_all(ioc, header, strlen(header));
+            br_sslio_write_all(ioc, log_content, strlen(log_content));
+            free(log_content);
+        }
+        br_sslio_flush(ioc);
+        return;
+    }
 
     // --- RENDER UI ---
     // Using heap for body to avoid stack overflow with large pages
@@ -655,54 +684,75 @@ void handle_client(br_sslio_context *ioc) {
             "</div>", status_html, cfg.opencellid_token);
     }
     else if (strcmp(page, "wardrive") == 0) {
-        char res[8192]="";
-        if (strstr(buffer,"action=scan")) {
+        char *res = malloc(16384);
+        int res_allocated = (res != NULL);
+        if (!res_allocated) {
+            res = malloc(256);  // Try smaller fallback
+            res_allocated = (res != NULL);
+        }
+        if (res) res[0] = '\0';
+        
+        if (strstr(buffer,"action=scan") && res) {
             // Get scan results as JSON, then format for display
-            char json[4096];
-            wifi_scan_json(json, sizeof(json));
-            
-            // Parse JSON and format nicely (one network per line)
-            // Format: BSSID | SSID | RSSI | ENC
-            strcpy(res, "BSSID              | SSID                           | RSSI | ENC\n");
-            strcat(res, "-------------------|--------------------------------|------|-----\n");
-            
-            char *p = json;
-            while ((p = strstr(p, "\"bssid\":\"")) != NULL) {
-                char bssid[20]="", ssid[64]="", enc[16]="";
-                int rssi = 0;
+            char *json = malloc(8192);
+            if (json) {
+                wifi_scan_json(json, 8192);
                 
-                // Parse bssid
-                p += 9;
-                char *e = strchr(p, '"');
-                if (e && (e-p) < 20) { strncpy(bssid, p, e-p); bssid[e-p]=0; }
+                // Parse JSON and format nicely
+                strcpy(res, "BSSID              | SSID                           | RSSI | ENC\n");
+                strcat(res, "-------------------|--------------------------------|------|------\n");
                 
-                // Parse ssid
-                char *sp = strstr(p, "\"ssid\":\"");
-                if (sp) {
-                    sp += 8;
-                    e = strchr(sp, '"');
-                    if (e && (e-sp) < 64) { strncpy(ssid, sp, e-sp); ssid[e-sp]=0; }
+                int total_aps = 0;
+                
+                char *p = json;
+                while ((p = strstr(p, "\"bssid\":\"")) != NULL) {
+                    char bssid[20]="", ssid[64]="", enc[16]="";
+                    int rssi = 0;
+                    
+                    // Parse bssid
+                    p += 9;
+                    char *e = strchr(p, '"');
+                    if (e && (e-p) < 20) { strncpy(bssid, p, e-p); bssid[e-p]=0; }
+                    
+                    // Parse ssid
+                    char *sp = strstr(p, "\"ssid\":\"");
+                    if (sp) {
+                        sp += 8;
+                        e = strchr(sp, '"');
+                        if (e && (e-sp) < 64) { strncpy(ssid, sp, e-sp); ssid[e-sp]=0; }
+                    }
+                    
+                    // Parse rssi
+                    char *rp = strstr(p, "\"rssi\":");
+                    if (rp) { rssi = atoi(rp + 7); }
+                    
+                    // Parse enc
+                    char *ecp = strstr(p, "\"enc\":\"");
+                    if (ecp) {
+                        ecp += 7;
+                        e = strchr(ecp, '"');
+                        if (e && (e-ecp) < 16) { strncpy(enc, ecp, e-ecp); enc[e-ecp]=0; }
+                    }
+                    
+                    // Format line
+                    char line[256];
+                    snprintf(line, sizeof(line), "%-18s | %-30s | %4d | %s\n", 
+                        bssid, ssid[0] ? ssid : "(hidden)", rssi, enc);
+                    if (strlen(res) + strlen(line) < 16000) {
+                        strcat(res, line);
+                    }
+                    total_aps++;
+                    
+                    p++; // Move past to find next entry
                 }
                 
-                // Parse rssi
-                char *rp = strstr(p, "\"rssi\":");
-                if (rp) { rssi = atoi(rp + 7); }
+                // Add summary at beginning
+                char summary[128];
+                snprintf(summary, sizeof(summary), "📊 Found %d APs\n\n", total_aps);
+                memmove(res + strlen(summary), res, strlen(res) + 1);
+                memcpy(res, summary, strlen(summary));
                 
-                // Parse enc
-                char *ep = strstr(p, "\"enc\":\"");
-                if (ep) {
-                    ep += 7;
-                    e = strchr(ep, '"');
-                    if (e && (e-ep) < 16) { strncpy(enc, ep, e-ep); enc[e-ep]=0; }
-                }
-                
-                // Format line
-                char line[256];
-                snprintf(line, sizeof(line), "%-18s | %-30s | %4d | %s\n", 
-                    bssid, ssid[0] ? ssid : "(hidden)", rssi, enc);
-                strcat(res, line);
-                
-                p++; // Move past to find next entry
+                free(json);
             }
         }
         
@@ -711,25 +761,79 @@ void handle_client(br_sslio_context *ioc) {
         gps_update();
         int has_gps = (gps_get_coords(gps_lat, gps_lon, sizeof(gps_lat)) == 0);
         
-        if (strstr(buffer,"action=log")) { 
+        if (res && strstr(buffer,"action=log")) { 
             wifi_new_session(); 
             wifi_log_kml(gps_lat, gps_lon); 
             strcpy(res,"Logged to new file."); 
         }
-        if (strstr(buffer,"action=start")) { wifi_start_wardrive(); strcpy(res,"Loop Started."); }
-        o += sprintf(body+o, "<div class='card'><h2>Wardriver</h2>"
-            "<p>Status: <b>%s</b></p>"
+        if (res && strstr(buffer,"action=start")) { wifi_start_wardrive(); strcpy(res,"WiFi Wardrive Started..."); }
+        if (res && strstr(buffer,"action=stop")) { wifi_stop_wardrive(); strcpy(res,"WiFi Wardrive Stopped."); }
+        
+        // Show recent log entries when wardrive is running
+        if (res && wifi_is_wardriving()) {
+            // Read last 20 lines from DagShell log
+            FILE *fp = popen("tail -20 /data/dagshell.log 2>/dev/null", "r");
+            if (fp) {
+                strcat(res, "\n--- Recent Activity ---\n");
+                char line[256];
+                while (fgets(line, sizeof(line), fp)) {
+                    if (strlen(res) + strlen(line) < 15900) {
+                        strcat(res, line);
+                    }
+                }
+                pclose(fp);
+            }
+        }
+        
+        o += sprintf(body+o, "<div class='card'><h2>📡 Wardriver</h2>"
             "<p>GPS: <b style='color:%s'>%s, %s</b> %s</p>"
-            "<a href='/?page=wardrive&action=start'><button>Start Loop</button></a> "
-            "<a href='/?page=wardrive&action=stop'><button class='warn'>Stop Loop</button></a><br><br>"
+            "<hr>"
+            "<h3>WiFi Wardrive</h3>"
+            "<p>Status: <b style='color:%s'>%s</b></p>"
+            "<a href='/?page=wardrive&action=start'><button>▶ Start</button></a> "
+            "<a href='/?page=wardrive&action=stop'><button class='warn'>⏹ Stop</button></a>"
+            "<hr>"
             "<a href='/?page=wardrive&action=scan'><button>Single Scan</button></a> "
-            "<a href='/?page=wardrive&action=log'><button>Log Single</button></a>"
-            "<pre style='font-size:11px;overflow-x:auto;'>%s</pre></div>", 
-            wifi_is_wardriving()?"RUNNING":"STOPPED",
+            "<a href='/?page=wardrive&action=log'><button>Log Single</button></a> "
+            "<button onclick='copyLog()'>📋 Copy Log</button>"
+            "<pre id='wardrive-log' style='font-size:11px;overflow:auto;min-height:200px;max-height:400px;white-space:pre;background:#001100;padding:10px;border:1px solid #004400;'>%s</pre></div>", 
             has_gps ? "#0f0" : "#f66",
             gps_lat, gps_lon,
             has_gps ? "" : "<a href='/?page=gps'>(Set GPS)</a>",
-            res);
+            wifi_is_wardriving() ? "#0f0" : "#f66",
+            wifi_is_wardriving() ? "RUNNING" : "STOPPED",
+            res ? res : "");
+        
+        // Add AJAX log refresh and copy function
+        o += sprintf(body+o, 
+            "<script>"
+            "function copyLog(){"
+            "  var t=document.getElementById('wardrive-log').innerText;"
+            "  navigator.clipboard.writeText(t).then(function(){"
+            "    alert('Log copied!');"
+            "  },function(){"
+            "    var ta=document.createElement('textarea');"
+            "    ta.value=t;document.body.appendChild(ta);"
+            "    ta.select();document.execCommand('copy');"
+            "    document.body.removeChild(ta);"
+            "    alert('Log copied!');"
+            "  });"
+            "}");
+        
+        // Add AJAX refresh if wardrive is running
+        if (wifi_is_wardriving()) {
+            o += sprintf(body+o, 
+                "function refreshLog(){"
+                "  fetch('/?cmd=get_log').then(r=>r.text()).then(t=>{"
+                "    var pre=document.getElementById('wardrive-log');"
+                "    if(pre)pre.textContent=t;"
+                "  });"
+                "}"
+                "setInterval(refreshLog,3000);");
+        }
+        o += sprintf(body+o, "</script>");
+        
+        if (res_allocated && res) free(res);
     }
     
     else if (strcmp(page, "scan") == 0) {
@@ -1008,11 +1112,8 @@ void handle_client(br_sslio_context *ioc) {
     
     // --- LOG PAGE ---
     else if (strcmp(page, "log") == 0) {
-        // Auto-refresh every 5 seconds
-        o += sprintf(body+o, "<meta http-equiv='refresh' content='5'>");
-        
         o += sprintf(body+o, "<div class='card'><h2>Live Log</h2>"
-            "<p style='font-size:10px'>Auto-refreshes every 5 seconds</p>"
+            "<p style='font-size:10px'>Auto-refreshes every 3 seconds via AJAX</p>"
             "<a href='/?page=log&clear=1'><button class='warn'>Clear Log</button></a> "
             "<a href='/?page=log&view=boot'><button>Boot Diag</button></a> "
             "<button onclick='copyLog()'>Copy All</button><br><br>"
@@ -1026,20 +1127,21 @@ void handle_client(br_sslio_context *ioc) {
         // Choose which log to show
         const char *logfile = "/data/dagshell.log";
         int max_lines = 200;
+        int is_boot = 0;
         if (strstr(buffer, "view=boot")) {
             logfile = "/data/boot_diag.log";
-            max_lines = 500;  // Boot diag is smaller, show more
+            max_lines = 500;
+            is_boot = 1;
             o += sprintf(body+o, "=== BOOT DIAGNOSTICS ===\n\n");
         }
         
-        // Read log file (use tail to prevent buffer overflow!)
+        // Read log file
         char cmd[128];
         snprintf(cmd, sizeof(cmd), "tail -n %d %s 2>/dev/null", max_lines, logfile);
         FILE *fp = popen(cmd, "r");
         if (fp) {
             char line[256];
             while (fgets(line, sizeof(line), fp)) {
-                // HTML escape < and >
                 for (int i = 0; line[i]; i++) {
                     if (line[i] == '<') o += sprintf(body+o, "&lt;");
                     else if (line[i] == '>') o += sprintf(body+o, "&gt;");
@@ -1065,7 +1167,15 @@ void handle_client(br_sslio_context *ioc) {
             "    alert('Log copied!');"
             "  });"
             "}"
-            "</script></div>");
+            "%s"  // AJAX refresh only for main log, not boot diag
+            "</script></div>",
+            is_boot ? "" : 
+            "function refreshLog(){"
+            "  fetch('/?cmd=get_log').then(r=>r.text()).then(t=>{"
+            "    document.getElementById('logcontent').textContent=t;"
+            "  });"
+            "}"
+            "setInterval(refreshLog,3000);");
     }
     
     strcat(body, "</body></html>");
@@ -1082,10 +1192,12 @@ void handle_client(br_sslio_context *ioc) {
 }
 
 int main(int argc, char *argv[]) {
-    // Check for Background Mode
-    if (argc > 1 && strcmp(argv[1], "--wardrive") == 0) {
-        wifi_wardrive_process();
-        return 0;
+    // Check for Background Modes
+    if (argc > 1) {
+        if (strcmp(argv[1], "--wardrive") == 0) {
+            wifi_wardrive_process();
+            return 0;
+        }
     }
     
     // Check for Auto-Start Wardriving

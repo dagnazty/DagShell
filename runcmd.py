@@ -10,7 +10,7 @@ time.sleep(0.5)
 cmd = sys.argv[1] if len(sys.argv) > 1 else 'ps | grep orbic'
 
 s.send(f'{cmd}\n'.encode())
-time.sleep(2)
+time.sleep(6)  # Wait longer for scan commands
 
 data = b''
 s.setblocking(False)
