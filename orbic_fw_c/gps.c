@@ -441,3 +441,56 @@ void gps_get_status_html(char *buffer, int max_len) {
             cell_cid[0] ? cell_cid : "?");
     }
 }
+
+// Cell tower logger state - track last logged tower to avoid duplicates
+static char last_logged_lac[16] = "";
+static char last_logged_cid[16] = "";
+
+#define CELL_LOG_FILE "/data/celltowers.csv"
+
+void gps_log_cell_tower(const char *lat, const char *lon) {
+    // Only log if we have cell info
+    if (cell_mcc[0] == 0 || cell_lac[0] == 0 || cell_cid[0] == 0) return;
+    
+    // Skip if same as last logged tower
+    if (strcmp(last_logged_lac, cell_lac) == 0 && strcmp(last_logged_cid, cell_cid) == 0) {
+        return;
+    }
+    
+    // Check if file exists, write header if new
+    int is_new = (access(CELL_LOG_FILE, F_OK) != 0);
+    
+    FILE *fp = fopen(CELL_LOG_FILE, "a");
+    if (!fp) return;
+    
+    if (is_new) {
+        fprintf(fp, "timestamp,mcc,mnc,lac,cid,lat,lon\n");
+    }
+    
+    // Get timestamp
+    time_t now = time(NULL);
+    struct tm *tm = localtime(&now);
+    char timebuf[32];
+    strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", tm);
+    
+    // Log the cell tower
+    fprintf(fp, "%s,%s,%s,%s,%s,%s,%s\n",
+        timebuf, cell_mcc, cell_mnc, cell_lac, cell_cid, lat, lon);
+    fclose(fp);
+    
+    // Update last logged
+    strncpy(last_logged_lac, cell_lac, sizeof(last_logged_lac) - 1);
+    strncpy(last_logged_cid, cell_cid, sizeof(last_logged_cid) - 1);
+    
+    char logbuf[128];
+    snprintf(logbuf, sizeof(logbuf), "Cell tower logged: %s/%s LAC=%s CID=%s", 
+        cell_mcc, cell_mnc, cell_lac, cell_cid);
+    daglog(logbuf);
+}
+
+void gps_get_cell_info(char *mcc, char *mnc, char *lac, char *cid, int max_len) {
+    strncpy(mcc, cell_mcc[0] ? cell_mcc : "?", max_len - 1);
+    strncpy(mnc, cell_mnc[0] ? cell_mnc : "?", max_len - 1);
+    strncpy(lac, cell_lac[0] ? cell_lac : "?", max_len - 1);
+    strncpy(cid, cell_cid[0] ? cell_cid : "?", max_len - 1);
+}

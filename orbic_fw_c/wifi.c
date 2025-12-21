@@ -267,16 +267,45 @@ void wifi_wardrive_process() {
 void wifi_start_wardrive() {
     daglog("Starting wardrive process...");
     system("/data/orbic_app --wardrive > /dev/null 2>&1 &");
+    // Give it a moment to start, then record PID
+    usleep(500000);
+    system("pgrep -f 'orbic_app --wardrive' | head -1 > /tmp/wardrive.pid 2>/dev/null");
 }
 
 void wifi_stop_wardrive() {
     daglog("Stopping wardrive process");
     system("pkill -f 'orbic_app --wardrive'");
+    // Remove PID file
+    unlink("/tmp/wardrive.pid");
 }
 
 int wifi_is_wardriving() {
-    int ret = system("pgrep -f 'orbic_app --wardrive' > /dev/null");
-    return (ret == 0);
+    // Check if PID file exists and process is still running
+    FILE *fp = fopen("/tmp/wardrive.pid", "r");
+    if (!fp) return 0;
+    
+    char pid_str[16] = {0};
+    if (fgets(pid_str, sizeof(pid_str), fp) == NULL) {
+        fclose(fp);
+        return 0;
+    }
+    fclose(fp);
+    
+    // Trim newline
+    pid_str[strcspn(pid_str, "\n")] = 0;
+    if (strlen(pid_str) == 0) return 0;
+    
+    // Check if process with this PID exists
+    char proc_path[32];
+    snprintf(proc_path, sizeof(proc_path), "/proc/%s", pid_str);
+    
+    if (access(proc_path, F_OK) == 0) {
+        return 1;  // Process exists
+    }
+    
+    // PID file exists but process is dead - clean up
+    unlink("/tmp/wardrive.pid");
+    return 0;
 }
 
 // --- WIFI CLIENT CONNECTION ---

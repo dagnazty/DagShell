@@ -47,7 +47,30 @@ echo "" >> $BOOTLOG
 echo "--- NAT POSTROUTING ---" >> $BOOTLOG
 iptables -t nat -L POSTROUTING -n >> $BOOTLOG 2>&1
 
-# 6. Start DagShell
+# 6. Apply saved settings from config
+CONFIG_FILE="/data/dagshell_config"
+if [ -f "$CONFIG_FILE" ]; then
+    echo "" >> $BOOTLOG
+    echo "--- APPLYING SAVED SETTINGS ---" >> $BOOTLOG
+    
+    # Apply TTL if set
+    TTL=$(grep "^default_ttl=" "$CONFIG_FILE" | cut -d= -f2)
+    if [ -n "$TTL" ] && [ "$TTL" -gt 0 ] 2>/dev/null; then
+        iptables -t mangle -I POSTROUTING 1 -j TTL --ttl-set $TTL
+        echo "[OK] TTL set to $TTL" >> $BOOTLOG
+    fi
+    
+    # Apply MAC spoof if set
+    MAC=$(grep "^spoofed_mac=" "$CONFIG_FILE" | cut -d= -f2)
+    if [ -n "$MAC" ] && [ ${#MAC} -ge 17 ]; then
+        ifconfig wlan1 down
+        ifconfig wlan1 hw ether $MAC
+        ifconfig wlan1 up
+        echo "[OK] MAC spoofed to $MAC" >> $BOOTLOG
+    fi
+fi
+
+# 7. Start DagShell
 sleep 5
 /data/orbic_app &
 echo "" >> $BOOTLOG

@@ -8,6 +8,9 @@ typedef struct {
     char opencellid_token[128];
     int auto_upload;      // 1 = enabled, 0 = disabled
     int auto_wardrive;    // 1 = enabled, 0 = disabled
+    // Settings persistence
+    int default_ttl;      // 0 = disabled, 65 = typical for hotspot masking
+    char spoofed_mac[18]; // XX:XX:XX:XX:XX:XX format
 } AppConfig;
 
 // Load full config from file

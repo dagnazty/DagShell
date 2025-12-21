@@ -40,10 +40,17 @@
             <h1>📋 Feature Documentation</h1>
 
             <h2>🏠 Dashboard</h2>
-            <p>The home page provides an overview of your device and direct modem access.</p>
+            <p>The home page provides a real-time overview of your device status and direct modem access.</p>
 
-            <h3>System Uptime</h3>
-            <p>Displays how long the device has been running since last boot (in seconds).</p>
+            <h3>System Stats</h3>
+            <p>Displays key metrics at a glance:</p>
+            <ul>
+                <li><strong>Signal Strength</strong> - Cellular signal quality with dBm reading</li>
+                <li><strong>Connected Clients</strong> - Number of devices on your hotspot</li>
+                <li><strong>Data Usage</strong> - Total downloaded and uploaded bytes</li>
+                <li><strong>Cell Tower</strong> - Current LAC/CID of connected tower</li>
+                <li><strong>Uptime</strong> - Time since last boot (e.g., "1d 2h 30m")</li>
+            </ul>
 
             <h3>AT Command Interface</h3>
             <p>Send raw AT commands directly to the modem. Examples:</p>
@@ -156,12 +163,20 @@
             <p>Network reconnaissance and defense utilities.</p>
 
             <h3>📡 IMSI Catcher Detector</h3>
-            <p>Monitors your cellular connection for signs of fake cell towers (IMSI catchers / Stingrays).</p>
-            <p>Displays:</p>
+            <p>Enhanced cell info display with anomaly detection for fake cell towers (IMSI catchers / Stingrays).</p>
+            <p>Displays in styled info cards:</p>
             <ul>
-                <li><strong>Operator</strong> - Current network provider (AT+COPS?)</li>
-                <li><strong>Registration</strong> - Network registration status (AT+CREG?)</li>
-                <li><strong>Signal (CSQ)</strong> - Signal quality indicator</li>
+                <li><strong>Operator</strong> - Carrier name with MCC/MNC codes</li>
+                <li><strong>Signal Strength</strong> - Percentage, dBm, and CSQ with color coding</li>
+                <li><strong>Network Type</strong> - LTE/GSM/WCDMA via AT+QNWINFO</li>
+                <li><strong>Cell Tower</strong> - LAC and CID values</li>
+                <li><strong>IMEI/IMSI</strong> - Device and SIM identifiers</li>
+            </ul>
+            <h4>Anomaly Detection</h4>
+            <p>Automatic warnings for potential IMSI catcher activity:</p>
+            <ul>
+                <li>⚠️ Unusually strong signal (> -50 dBm)</li>
+                <li>⚠️ 2G-only connection (common IMSI catcher tactic)</li>
             </ul>
             <div class="alert alert-warning">
                 ⚠️ <strong>Disclaimer:</strong> This is a basic detector. Professional IMSI catchers may not be
@@ -261,16 +276,90 @@
             <h2>📁 File Explorer</h2>
             <p>Browse, download, upload, and delete files from the device's <code>/data/</code> directory.</p>
 
+            <h3>Multi-Select Operations</h3>
+            <p>Use checkboxes to select multiple files, then:</p>
+            <ul>
+                <li><strong>Delete Selected</strong> - Remove multiple files at once</li>
+                <li><strong>Download Selected</strong> - Download multiple files sequentially</li>
+            </ul>
+            <p>Quick actions: <code>Select All</code> / <code>Select None</code> buttons for convenience.</p>
+
             <h3>Download Files</h3>
-            <p>Click the "DL" button to download any file from the device (wardrive logs, etc.).</p>
+            <p>Click the "📥" button to download any file from the device. File sizes are shown in KB/MB format.</p>
 
             <h3>Upload to Wigle</h3>
             <p>Wardrive CSV files have an "Upload" button that uploads directly to Wigle.net through your browser. The
                 file is automatically deleted on successful upload.</p>
 
             <h3>Delete Files</h3>
-            <p>Remove files using the "Del" button. Wardrive CSV files can be deleted immediately; other files will
-                prompt for confirmation.</p>
+            <p>Remove files using the "🗑️" button or select multiple and use batch delete.</p>
+        </div>
+
+        <!-- Web Terminal -->
+        <div class="card">
+            <h2>💻 Web Terminal (SHELL)</h2>
+            <p>Execute shell commands directly on the device through the web interface.</p>
+            <p>Enter any Linux command and see the output. Useful for:</p>
+            <ul>
+                <li>Checking system status (<code>ps aux</code>, <code>df -h</code>)</li>
+                <li>Viewing logs (<code>cat /var/log/messages</code>)</li>
+                <li>Network diagnostics (<code>ip addr</code>, <code>netstat</code>)</li>
+                <li>Advanced troubleshooting</li>
+            </ul>
+            <div class="alert alert-warning">
+                ⚠️ <strong>Caution:</strong> This provides root shell access. Use carefully.
+            </div>
+        </div>
+
+        <!-- USSD -->
+        <div class="card">
+            <h2>📞 USSD Executor</h2>
+            <p>Send USSD codes to check account balance, activate plans, or access carrier services.</p>
+            <p>Enter a USSD code (e.g., <code>*#06#</code>, <code>*100#</code>) and submit.</p>
+            <p>Uses <code>AT+CUSD</code> command to communicate with the carrier network.</p>
+        </div>
+
+        <!-- Data Usage -->
+        <div class="card">
+            <h2>📊 Data Usage Monitor (USAGE)</h2>
+            <p>Track cellular data usage per session with historical logging.</p>
+            <h3>Current Session</h3>
+            <p>Displays real-time data usage with styled cards:</p>
+            <ul>
+                <li><strong>Downloaded</strong> - Total bytes received (↓)</li>
+                <li><strong>Uploaded</strong> - Total bytes sent (↑)</li>
+                <li><strong>Total</strong> - Combined usage</li>
+                <li><strong>Session Duration</strong> - Time since boot</li>
+            </ul>
+            <h3>Usage History</h3>
+            <p>Save sessions to build a usage history over time:</p>
+            <ul>
+                <li><strong>💾 Save Session</strong> - Log current usage to history file</li>
+                <li>View historical data in a table with running totals</li>
+                <li><strong>🗑️ Clear History</strong> - Reset all historical data</li>
+            </ul>
+        </div>
+
+        <!-- Clients -->
+        <div class="card">
+            <h2>👥 Connected Clients (CLIENTS)</h2>
+            <p>Track devices that connect to your hotspot.</p>
+            <p>Displays a list of clients with their MAC addresses, IP addresses, and connection times.</p>
+            <p>Client connections are logged to <code>/data/client_log.txt</code> for historical reference.</p>
+        </div>
+
+        <!-- Settings -->
+        <div class="card">
+            <h2>⚙️ Settings Persistence</h2>
+            <p>Configure DagShell options that persist across reboots.</p>
+            <h3>Saved Settings</h3>
+            <ul>
+                <li><strong>Default TTL</strong> - Applied automatically on boot</li>
+                <li><strong>Spoofed MAC</strong> - Applied automatically on boot</li>
+                <li><strong>Wigle API Credentials</strong> - For automatic wardrive uploads</li>
+                <li><strong>OpenCellID Token</strong> - For cell tower GPS lookups</li>
+            </ul>
+            <p>Settings are stored in <code>/data/dagshell_config</code> and applied by the boot script.</p>
         </div>
 
         <!-- Technical Details -->
@@ -322,7 +411,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>DagShell &copy; 2024 | Created by <a href="https://github.com/dagnazty" target="_blank">dag</a></p>
+            <p>DagShell &copy; 2025 | Created by <a href="https://github.com/dagnazty" target="_blank">dag</a></p>
             <p>Built with ❤️ and <code>gcc</code> | <a href="https://github.com/dagnazty/DagShell"
                     target="_blank">GitHub</a></p>
         </footer>

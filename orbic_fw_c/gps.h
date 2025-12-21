@@ -25,4 +25,10 @@ int gps_get_json(char *buffer, int max_len);
 // Get formatted HTML status for display
 void gps_get_status_html(char *buffer, int max_len);
 
+// Log current cell tower to CSV (for cell tower wardriving)
+void gps_log_cell_tower(const char *lat, const char *lon);
+
+// Get current cell tower info (for dashboard stats)
+void gps_get_cell_info(char *mcc, char *mnc, char *lac, char *cid, int max_len);
+
 #endif

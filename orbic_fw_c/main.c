@@ -17,6 +17,7 @@
 #include "wifi.h"
 #include "wigle.h"
 #include "log.h"
+#include "clients.h"
 
 #define PORT 8443  // HTTPS port (non-standard to avoid Verizon captive portal)
 #define BUFFER_SIZE 8192
@@ -307,7 +308,7 @@ void handle_client(br_sslio_context *ioc) {
         if (strstr(qm, "page=files")) strcpy(page, "files");
         if (strstr(qm, "page=scan")) strcpy(page, "scan");
         if (strstr(qm, "page=settings")) strcpy(page, "settings");
-        if (strstr(qm, "page=log")) strcpy(page, "log");
+        if (strstr(qm, "page=log")) strcpy(page, "log"); if (strstr(qm, "page=clients")) strcpy(page, "clients"); if (strstr(qm, "page=shell")) strcpy(page, "shell"); if (strstr(qm, "page=usage")) strcpy(page, "usage");
         
         char *cmd_ptr = strstr(qm, "cmd=");
         if (cmd_ptr) url_decode(at_cmd, cmd_ptr + 4);
@@ -453,7 +454,7 @@ void handle_client(br_sslio_context *ioc) {
         "| |_| | (_| | (_| |__) | | | |  __/ | |\n"
         "|____/ \\__,_|\\__, |___/|_| |_|\\___|_|_|\n"
         "             |___/                     \n"
-        "[ Orbic RCL400 Custom Firmware v2.0 ]</pre></div>");
+        "[ Orbic RCL400 Custom Firmware v2.1 ]</pre></div>");
 
     // Navigation
     o += sprintf(body+o, 
@@ -466,6 +467,9 @@ void handle_client(br_sslio_context *ioc) {
         "<a href='/?page=gps' class='%s'>GPS</a>"
         "<a href='/?page=wardrive' class='%s'>WARDRIVE</a>"
         "<a href='/?page=scan' class='%s'>SCAN</a>"
+        "<a href='/?page=usage' class='%s'>USAGE</a>"
+        "<a href='/?page=clients' class='%s'>CLIENTS</a>"
+        "<a href='/?page=shell' class='%s'>SHELL</a>"
         "<a href='/?page=files' class='%s'>FILES</a>"
         "<a href='/?page=log' class='%s'>LOG</a>"
         "<a href='/?page=settings' class='%s'>SETTINGS</a>"
@@ -475,19 +479,89 @@ void handle_client(br_sslio_context *ioc) {
         strcmp(page,"tools")==0?"active":"", strcmp(page,"gps")==0?"active":"",
         strcmp(page,"wardrive")==0?"active":"",
         strcmp(page,"scan")==0?"active":"",
+        strcmp(page,"usage")==0?"active":"",
+        strcmp(page,"clients")==0?"active":"",
+        strcmp(page,"shell")==0?"active":"",
         strcmp(page,"files")==0?"active":"",
         strcmp(page,"log")==0?"active":"",
         strcmp(page,"settings")==0?"active":"");
 
     // --- PAGE LOGIC ---
     if (strcmp(page, "home") == 0) {
-        float up=0; FILE *f=fopen("/proc/uptime","r"); if(f){fscanf(f,"%f",&up);fclose(f);}
+        float uptime_secs=0; FILE *f=fopen("/proc/uptime","r"); if(f){fscanf(f,"%f",&uptime_secs);fclose(f);}
+        
+        // Format uptime nicely
+        int up_days = (int)(uptime_secs / 86400);
+        int up_hours = ((int)uptime_secs % 86400) / 3600;
+        int up_mins = ((int)uptime_secs % 3600) / 60;
+        char uptime_str[64];
+        if (up_days > 0) snprintf(uptime_str, sizeof(uptime_str), "%dd %dh %dm", up_days, up_hours, up_mins);
+        else if (up_hours > 0) snprintf(uptime_str, sizeof(uptime_str), "%dh %dm", up_hours, up_mins);
+        else snprintf(uptime_str, sizeof(uptime_str), "%dm", up_mins);
+        
+        // Get signal strength (AT+CSQ returns 0-31 scale)
+        char csq_resp[128] = "";
+        send_at_command("AT+CSQ", csq_resp, sizeof(csq_resp));
+        int signal_raw = 0;
+        char *csq_ptr = strstr(csq_resp, "+CSQ:");
+        if (csq_ptr) signal_raw = atoi(csq_ptr + 6);
+        int signal_pct = (signal_raw > 0 && signal_raw <= 31) ? (signal_raw * 100 / 31) : 0;
+        int signal_dbm = (signal_raw > 0 && signal_raw <= 31) ? (-113 + signal_raw * 2) : 0;
+        
+        // Get client count
+        clients_update();
+        int client_count = clients_get_count();
+        
+        // Get cell tower info
+        char mcc[8], mnc[8], lac[16], cid[16];
+        gps_get_cell_info(mcc, mnc, lac, cid, 16);
+        
+        // Get data usage from /proc/net/dev - check multiple interfaces
+        unsigned long rx_bytes = 0, tx_bytes = 0;
+        FILE *netdev = fopen("/proc/net/dev", "r");
+        if (netdev) {
+            char line[256];
+            while (fgets(line, sizeof(line), netdev)) {
+                // Check for any cellular interface
+                if (strstr(line, "rmnet") || strstr(line, "wwan") || 
+                    strstr(line, "usb") || strstr(line, "eth") || strstr(line, "bridge")) {
+                    unsigned long iface_rx = 0, iface_tx = 0;
+                    if (sscanf(line, " %*[^:]: %lu %*d %*d %*d %*d %*d %*d %*d %lu", &iface_rx, &iface_tx) == 2) {
+                        rx_bytes += iface_rx;
+                        tx_bytes += iface_tx;
+                    }
+                }
+            }
+            fclose(netdev);
+        }
+        float rx_mb = rx_bytes / (1024.0 * 1024.0);
+        float tx_mb = tx_bytes / (1024.0 * 1024.0);
+        
         o += sprintf(body+o, 
-            "<div class='card'><h2>Status</h2><p>Uptime: %.2fs</p><hr>"
-            "<h3>Modem Command (AT)</h3>"
+            "<div class='card'><h2>📊 Dashboard</h2>"
+            "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-bottom:20px;' id='stats'>"
+            "<div style='background:#001a00;padding:15px;border:1px solid #0a4;border-radius:5px;text-align:center;'>"
+            "<div style='font-size:24px;'>📶</div>"
+            "<div style='font-size:20px;color:#0f0;'>%d%%</div>"
+            "<div style='font-size:10px;'>Signal (%d dBm)</div></div>"
+            "<div style='background:#001a00;padding:15px;border:1px solid #0a4;border-radius:5px;text-align:center;'>"
+            "<div style='font-size:24px;'>👥</div>"
+            "<div style='font-size:20px;color:#0f0;'>%d</div>"
+            "<div style='font-size:10px;'>Clients</div></div>"
+            "<div style='background:#001a00;padding:15px;border:1px solid #0a4;border-radius:5px;text-align:center;'>"
+            "<div style='font-size:24px;'>📡</div>"
+            "<div style='font-size:20px;color:#0f0;'>%s/%s</div>"
+            "<div style='font-size:10px;'>MCC/MNC</div></div>"
+            "<div style='background:#001a00;padding:15px;border:1px solid #0a4;border-radius:5px;text-align:center;'>"
+            "<div style='font-size:24px;'>📈</div>"
+            "<div style='font-size:16px;color:#0f0;'>↓%.1f MB</div>"
+            "<div style='font-size:16px;color:#0f0;'>↑%.1f MB</div></div>"
+            "</div>"
+            "<p style='font-size:11px;'>⏱️ Uptime: %s | 📡 Cell: LAC=%s CID=%s</p>"
+            "<hr><h3>Modem Command (AT)</h3>"
             "<form><input type='text' name='cmd' placeholder='ATI' value='%s'><button>Send</button></form>"
             "<pre>%s</pre></div>",
-            up, at_cmd, at_response);
+            signal_pct, signal_dbm, client_count, mcc, mnc, rx_mb, tx_mb, uptime_str, lac, cid, at_cmd, at_response);
     }
     else if (strcmp(page, "net") == 0) {
         // --- Network Logic Restored ---
@@ -574,13 +648,152 @@ void handle_client(br_sslio_context *ioc) {
             "<p><a href='http://192.168.1.1/common/shortmessage.html' target='_blank'>[Open Orbic Inbox]</a></p></div>", at_response);
     }
     else if (strcmp(page, "tools") == 0) {
-        // --- Tools Logic Restored ---
+        // --- Enhanced Cell/IMSI Info ---
+        char cops_raw[256], creg_raw[256], csq_raw[128], cgsn_raw[128], cimi_raw[128];
+        char cereg_raw[256], cpin_raw[64], qnwinfo_raw[256];
         
-        // IMSI Catcher Info
-        char cell[2048], creg[512], csq[256];
-        send_at_command("AT+COPS?", cell, sizeof(cell));
-        send_at_command("AT+CREG?", creg, sizeof(creg));
-        send_at_command("AT+CSQ", csq, sizeof(csq));
+        send_at_command("AT+COPS?", cops_raw, sizeof(cops_raw));
+        send_at_command("AT+CREG?", creg_raw, sizeof(creg_raw));
+        send_at_command("AT+CSQ", csq_raw, sizeof(csq_raw));
+        send_at_command("AT+CGSN", cgsn_raw, sizeof(cgsn_raw));
+        send_at_command("AT+CIMI", cimi_raw, sizeof(cimi_raw));
+        send_at_command("AT+CEREG?", cereg_raw, sizeof(cereg_raw));
+        send_at_command("AT+CPIN?", cpin_raw, sizeof(cpin_raw));
+        send_at_command("AT+QNWINFO", qnwinfo_raw, sizeof(qnwinfo_raw));
+        
+        // Parse operator name from COPS
+        char operator_name[64] = "Unknown";
+        char *cops_quote = strchr(cops_raw, '"');
+        if (cops_quote) {
+            cops_quote++;
+            char *end = strchr(cops_quote, '"');
+            if (end && (end - cops_quote) < 60) {
+                strncpy(operator_name, cops_quote, end - cops_quote);
+                operator_name[end - cops_quote] = 0;
+            }
+        }
+        
+        // Parse signal from CSQ (0-31 scale)
+        int signal_raw = 0, ber = 0;
+        char *csq_ptr = strstr(csq_raw, "+CSQ:");
+        if (csq_ptr) sscanf(csq_ptr + 6, "%d,%d", &signal_raw, &ber);
+        int signal_pct = (signal_raw > 0 && signal_raw <= 31) ? (signal_raw * 100 / 31) : 0;
+        int signal_dbm = (signal_raw > 0 && signal_raw <= 31) ? (-113 + signal_raw * 2) : -999;
+        
+        // Get IMEI (clean it up)
+        char imei[20] = "N/A";
+        char *imei_line = strstr(cgsn_raw, "\n");
+        if (imei_line) {
+            imei_line++;
+            int i = 0;
+            while (imei_line[i] && imei_line[i] != '\r' && imei_line[i] != '\n' && i < 19) {
+                if (imei_line[i] >= '0' && imei_line[i] <= '9') imei[i] = imei_line[i];
+                i++;
+            }
+            imei[i] = 0;
+        }
+        
+        // Get IMSI (clean it up)
+        char imsi[20] = "N/A";
+        char *imsi_line = strstr(cimi_raw, "\n");
+        if (imsi_line) {
+            imsi_line++;
+            int i = 0;
+            while (imsi_line[i] && imsi_line[i] != '\r' && imsi_line[i] != '\n' && i < 19) {
+                if (imsi_line[i] >= '0' && imsi_line[i] <= '9') imsi[i] = imsi_line[i];
+                i++;
+            }
+            imsi[i] = 0;
+        }
+        
+        // Parse network type from QNWINFO
+        char network_type[32] = "Unknown";
+        char *nw_start = strstr(qnwinfo_raw, "\"");
+        if (nw_start) {
+            nw_start++;
+            char *nw_end = strchr(nw_start, '"');
+            if (nw_end && (nw_end - nw_start) < 30) {
+                strncpy(network_type, nw_start, nw_end - nw_start);
+                network_type[nw_end - nw_start] = 0;
+            }
+        }
+        
+        // Get cell tower info
+        char mcc[8], mnc[8], lac[16], cid[16];
+        gps_get_cell_info(mcc, mnc, lac, cid, 16);
+        
+        // IMSI Catcher detection heuristics
+        int anomaly_count = 0;
+        char anomalies[512] = "";
+        if (signal_dbm > -50) { anomaly_count++; strcat(anomalies, "• Unusually strong signal (possible fake tower)<br>"); }
+        if (strcmp(network_type, "GSM") == 0) { strcat(anomalies, "• 2G only (IMSI catchers often force downgrade)<br>"); }
+        // Note: More sophisticated detection would compare against known cell tower databases
+        
+        // Signal strength color
+        const char *sig_color = signal_pct > 70 ? "#0f0" : (signal_pct > 30 ? "#ff0" : "#f66");
+        
+        o += sprintf(body+o, "<div class='card'><h2>📡 Cell / IMSI Info</h2>"
+            "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;'>"
+            
+            // Operator Card
+            "<div style='background:#001a00;padding:15px;border:1px solid #0a4;border-radius:5px;'>"
+            "<div style='font-size:12px;color:#888;'>Operator</div>"
+            "<div style='font-size:18px;color:#0f0;'>%s</div>"
+            "<div style='font-size:11px;color:#666;'>MCC: %s MNC: %s</div></div>"
+            
+            // Signal Card
+            "<div style='background:#001a00;padding:15px;border:1px solid #0a4;border-radius:5px;'>"
+            "<div style='font-size:12px;color:#888;'>Signal Strength</div>"
+            "<div style='font-size:24px;color:%s;'>%d%%</div>"
+            "<div style='font-size:11px;color:#666;'>%d dBm (CSQ: %d)</div></div>"
+            
+            // Network Card
+            "<div style='background:#001a00;padding:15px;border:1px solid #0a4;border-radius:5px;'>"
+            "<div style='font-size:12px;color:#888;'>Network Type</div>"
+            "<div style='font-size:18px;color:#0ff;'>%s</div>"
+            "<div style='font-size:11px;color:#666;'>BER: %d</div></div>"
+            
+            // Cell Tower Card
+            "<div style='background:#001a00;padding:15px;border:1px solid #0a4;border-radius:5px;'>"
+            "<div style='font-size:12px;color:#888;'>Cell Tower</div>"
+            "<div style='font-size:14px;color:#0f0;'>LAC: %s</div>"
+            "<div style='font-size:14px;color:#0f0;'>CID: %s</div></div>"
+            
+            "</div>"
+            
+            // Device Info Row
+            "<div style='display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px;'>"
+            "<div style='background:#001a00;padding:10px;border:1px solid #0a4;border-radius:5px;'>"
+            "<div style='font-size:12px;color:#888;'>IMEI</div>"
+            "<div style='font-size:14px;font-family:monospace;color:#0f0;'>%s</div></div>"
+            "<div style='background:#001a00;padding:10px;border:1px solid #0a4;border-radius:5px;'>"
+            "<div style='font-size:12px;color:#888;'>IMSI</div>"
+            "<div style='font-size:14px;font-family:monospace;color:#0f0;'>%s</div></div>"
+            "</div>",
+            operator_name, mcc, mnc,
+            sig_color, signal_pct, signal_dbm, signal_raw,
+            network_type, ber,
+            lac, cid,
+            imei, imsi);
+        
+        // IMSI Catcher Warning Section
+        if (anomaly_count > 0 || strlen(anomalies) > 0) {
+            o += sprintf(body+o, 
+                "<div style='background:#300;border:1px solid #f00;padding:10px;margin-bottom:15px;border-radius:5px;'>"
+                "<b style='color:#f66;'>⚠️ IMSI Catcher Warning</b><br>"
+                "<div style='font-size:12px;color:#faa;margin-top:5px;'>%s</div></div>", anomalies);
+        } else {
+            o += sprintf(body+o, 
+                "<div style='background:#020;border:1px solid #0a0;padding:10px;margin-bottom:15px;border-radius:5px;'>"
+                "<b style='color:#0f0;'>✓ No obvious anomalies detected</b></div>");
+        }
+        
+        // Raw AT command data (collapsible)
+        o += sprintf(body+o,
+            "<details><summary style='cursor:pointer;color:#0ff;'>📋 Raw AT Responses</summary>"
+            "<pre style='font-size:10px;background:#000;padding:10px;margin-top:10px;'>"
+            "COPS: %s\nCREG: %s\nCEREG: %s\nCSQ: %s\nCPIN: %s\nQNWINFO: %s</pre></details><hr>",
+            cops_raw, creg_raw, cereg_raw, csq_raw, cpin_raw, qnwinfo_raw);
         
         // Port Scan
         char scan_res[4096]="";
@@ -620,12 +833,35 @@ void handle_client(br_sslio_context *ioc) {
         char rules[4096];
         run_command("iptables -L INPUT -n --line-numbers | head -20", rules, sizeof(rules));
 
-        o += sprintf(body+o, "<div class='card'><h2>Tools</h2>"
-            "<h3>IMSI / Cell Info</h3><pre>COPS: %s\nCREG: %s\nSIG: %s</pre>"
-            "<h3>Port Scanner</h3><form><input type='hidden' name='page' value='tools'><input type='text' name='scan_ip' placeholder='IP'><input type='text' name='scan_ports' placeholder='80,443,22'><button>Scan</button></form><pre>%s</pre>"
-            "<h3>Firewall</h3><form><input type='hidden' name='page' value='tools'><input type='text' name='block_ip' placeholder='Block IP'><button class='warn'>Block</button></form>"
+        o += sprintf(body+o, 
+            "<h3>🔍 Port Scanner</h3><form><input type='hidden' name='page' value='tools'><input type='text' name='scan_ip' placeholder='IP'><input type='text' name='scan_ports' placeholder='80,443,22'><button>Scan</button></form><pre>%s</pre>"
+            "<h3>🛡️ Firewall</h3><form><input type='hidden' name='page' value='tools'><input type='text' name='block_ip' placeholder='Block IP'><button class='warn'>Block</button></form>"
             "<form><input type='hidden' name='page' value='tools'><input type='text' name='unblock_ip' placeholder='Unblock IP'><button>Unblock</button></form>"
-            "<pre>%s</pre></div>", cell, creg, csq, scan_res, rules);
+            "<pre>%s</pre>", scan_res, rules);
+        
+        // USSD Executor
+        char ussd_result[512] = "";
+        char *ussd_ptr = strstr(buffer, "ussd_code=");
+        if (ussd_ptr) {
+            char raw_code[64] = {0}, ussd_code[64] = {0};
+            char *end = strchr(ussd_ptr + 10, '&');
+            if (!end) end = strchr(ussd_ptr + 10, ' ');
+            if (!end) end = ussd_ptr + 10 + strlen(ussd_ptr + 10);
+            if ((end - (ussd_ptr + 10)) < 63) {
+                strncpy(raw_code, ussd_ptr + 10, end - (ussd_ptr + 10));
+                url_decode(ussd_code, raw_code);
+                // Send USSD via AT command
+                char ussd_cmd[128];
+                snprintf(ussd_cmd, sizeof(ussd_cmd), "AT+CUSD=1,\"%s\",15", ussd_code);
+                send_at_command(ussd_cmd, ussd_result, sizeof(ussd_result));
+            }
+        }
+        o += sprintf(body+o, 
+            "<h3>📞 USSD Executor</h3>"
+            "<form><input type='hidden' name='page' value='tools'>"
+            "<input type='text' name='ussd_code' placeholder='*#06#' style='width:150px;'>"
+            "<button>Execute</button></form>"
+            "<pre>%s</pre></div>", ussd_result);
     }
     else if (strcmp(page, "gps") == 0) {
         gps_update(); 
@@ -972,17 +1208,26 @@ void handle_client(br_sslio_context *ioc) {
             }
         }
         
-        o += sprintf(body+o, "<div class='card'><h2>File Explorer</h2>"
+        o += sprintf(body+o, "<div class='card'><h2>📁 File Explorer</h2>"
             "<p>Download/delete files from <code>/data/</code></p>");
         if (delete_msg[0]) {
             o += sprintf(body+o, "<p style='color:#0f0'>%s</p>", delete_msg);
         }
         
-        // List files in /data
+        // Batch action buttons
+        o += sprintf(body+o, 
+            "<div style='margin-bottom:10px;'>"
+            "<button onclick='selectAll()'>☑ Select All</button> "
+            "<button onclick='selectNone()'>☐ Select None</button> "
+            "<button onclick='deleteSelected()' class='warn'>🗑️ Delete Selected</button> "
+            "<button onclick='downloadSelected()'>📥 Download Selected</button>"
+            "</div>");
+        
+        // List files in /data with checkboxes
         FILE *ls = popen("ls -la /data/", "r");
         if (ls) {
-            o += sprintf(body+o, "<table style='width:100%%;border-collapse:collapse;'>"
-                "<tr style='border-bottom:1px solid #0f0'><th>Name</th><th>Size</th><th>Actions</th></tr>");
+            o += sprintf(body+o, "<table style='width:100%%;border-collapse:collapse;' id='file-table'>"
+                "<tr style='border-bottom:1px solid #0f0'><th style='width:30px;'></th><th>Name</th><th>Size</th><th>Actions</th></tr>");
             
             char line[512];
             while (fgets(line, sizeof(line), ls)) {
@@ -999,21 +1244,27 @@ void handle_client(br_sslio_context *ioc) {
                     // Check if it's a wardrive file (safe to delete without warning)
                     int is_wardrive = (strstr(name, "wardrive") != NULL && strstr(name, ".csv") != NULL);
                     
+                    // Format size
+                    char size_str[32];
+                    if (size >= 1048576) snprintf(size_str, sizeof(size_str), "%.1fM", size / 1048576.0);
+                    else if (size >= 1024) snprintf(size_str, sizeof(size_str), "%.1fK", size / 1024.0);
+                    else snprintf(size_str, sizeof(size_str), "%ld", size);
+                    
                     if (is_wardrive) {
                         // Wardrive files - direct delete + Upload to Wigle (via browser)
                         o += sprintf(body+o, 
-                            "<tr><td>%s</td><td>%ld</td><td>"
+                            "<tr><td><input type='checkbox' class='file-cb' data-file='/data/%s'></td><td>%s</td><td>%s</td><td>"
                             "<a href='/download?file=/data/%s'><button>DL</button></a> "
                             "<button style='background:#050' onclick=\"wigleUpload('/data/%s')\">Upload</button> "
                             "<a href='/?page=files&delete=/data/%s'><button>Del</button></a></td></tr>",
-                            name, size, name, name, name);
+                            name, name, size_str, name, name, name);
                     } else {
                         // Non-wardrive files - delete with JS confirmation
                         o += sprintf(body+o, 
-                            "<tr><td>%s</td><td>%ld</td><td>"
+                            "<tr><td><input type='checkbox' class='file-cb' data-file='/data/%s'></td><td>%s</td><td>%s</td><td>"
                             "<a href='/download?file=/data/%s'><button>DL</button></a> "
-                            "<a href='/?page=files&delete=/data/%s' onclick=\"return confirm('WARNING: This is not a wardrive file. Delete %s?');\"><button class='warn'>Del</button></a></td></tr>",
-                            name, size, name, name, name);
+                            "<a href='/?page=files&delete=/data/%s' onclick=\"return confirm('WARNING: Delete %s?');\"><button class='warn'>Del</button></a></td></tr>",
+                            name, name, size_str, name, name, name);
                     }
                 }
             }
@@ -1023,7 +1274,33 @@ void handle_client(br_sslio_context *ioc) {
             o += sprintf(body+o, "<p class='warn'>Error listing directory</p>");
         }
         
-        o += sprintf(body+o, "</div>");
+        // JavaScript for batch actions
+        o += sprintf(body+o, 
+            "<script>"
+            "function selectAll(){document.querySelectorAll('.file-cb').forEach(cb=>cb.checked=true);}"
+            "function selectNone(){document.querySelectorAll('.file-cb').forEach(cb=>cb.checked=false);}"
+            "function getSelected(){return Array.from(document.querySelectorAll('.file-cb:checked')).map(cb=>cb.dataset.file);}"
+            "async function deleteSelected(){"
+            "  var files=getSelected();"
+            "  if(files.length==0){alert('No files selected');return;}"
+            "  if(!confirm('Delete '+files.length+' file(s)?'))return;"
+            "  for(var i=0;i<files.length;i++){"
+            "    await fetch('/?page=files&delete='+encodeURIComponent(files[i]));"
+            "  }"
+            "  location.reload();"
+            "}"
+            "function downloadSelected(){"
+            "  var files=getSelected();"
+            "  if(files.length==0){alert('No files selected');return;}"
+            "  files.forEach(function(f,i){"
+            "    setTimeout(function(){"
+            "      var a=document.createElement('a');a.href='/download?file='+encodeURIComponent(f);"
+            "      a.download=f.split('/').pop();document.body.appendChild(a);a.click();document.body.removeChild(a);"
+            "    },i*500);"
+            "  });"
+            "}"
+            "</script>"
+            "</div>");
         
         // Handle Upload Action
         char *upload_ptr = strstr(buffer, "upload=");
@@ -1079,6 +1356,14 @@ void handle_client(br_sslio_context *ioc) {
             cfg.auto_upload = strstr(buffer, "auto_upload=1") ? 1 : 0;
             cfg.auto_wardrive = strstr(buffer, "auto_wardrive=1") ? 1 : 0;
             
+            // TTL and MAC settings
+            p = strstr(buffer, "default_ttl=");
+            if (p) { cfg.default_ttl = atoi(p + 12); }
+            
+            p = strstr(buffer, "spoofed_mac=");
+            if (p) { p += 12; char *end = strchr(p, '&'); if(!end) end = strchr(p, ' '); if(!end) end = p + strlen(p);
+                if (end && (end - p) < 18) { char tmp[18]; strncpy(tmp, p, end-p); tmp[end-p]=0; url_decode(cfg.spoofed_mac, tmp); } }
+            
             config_save(&cfg);
         }
         
@@ -1102,12 +1387,20 @@ void handle_client(br_sslio_context *ioc) {
             "<input type='text' name='opencellid_token' value='%s' style='width:200px;'><br>"
             "<p style='font-size:10px'>Get free token at opencellid.org</p><br>"
             
+            "<h3>🔒 Privacy Settings</h3>"
+            "<label>Default TTL (0=disabled, 65=typical):</label><br>"
+            "<input type='number' name='default_ttl' value='%d' style='width:100px;' min='0' max='255'><br><br>"
+            "<label>Spoofed MAC (XX:XX:XX:XX:XX:XX):</label><br>"
+            "<input type='text' name='spoofed_mac' value='%s' style='width:180px;' placeholder='Leave empty to disable'><br>"
+            "<p style='font-size:10px'>Settings applied on boot via dagshell_boot.sh</p><br>"
+            
             "<button type='submit'>Save Settings</button>"
             "</form>"
             "</div>",
             cfg.wigle_api_name, cfg.wigle_api_token,
             cfg.auto_wardrive ? "checked" : "",
-            cfg.opencellid_token);
+            cfg.opencellid_token,
+            cfg.default_ttl, cfg.spoofed_mac);
     }
     
     // --- LOG PAGE ---
@@ -1176,6 +1469,173 @@ void handle_client(br_sslio_context *ioc) {
             "  });"
             "}"
             "setInterval(refreshLog,3000);");
+    }
+    
+    // --- CLIENTS PAGE ---
+    else if (strcmp(page, "clients") == 0) {
+        clients_update();
+        char clients_html[8192];
+        clients_get_html(clients_html, sizeof(clients_html));
+        
+        o += sprintf(body+o, "<div class='card'><h2>👥 Client Tracker</h2>"
+            "<p>Tracks devices connecting to hotspot via ARP table.</p>"
+            "<p>Active: <b style='color:#0f0'>%d</b> clients</p>"
+            "<button onclick='location.reload()'>🔄 Refresh</button><br><br>"
+            "%s"
+            "<hr><p style='font-size:10px'>New clients logged to <code>/data/client_log.txt</code></p>"
+            "</div>", clients_get_count(), clients_html);
+    }
+    
+    // --- SHELL PAGE ---
+    else if (strcmp(page, "shell") == 0) {
+        char shell_output[8192] = "";
+        char *shell_ptr = strstr(buffer, "shell_cmd=");
+        if (shell_ptr) {
+            char raw_cmd[512] = {0}, shell_cmd[512] = {0};
+            char *end = strchr(shell_ptr + 10, '&');
+            if (!end) end = strchr(shell_ptr + 10, ' ');
+            if (!end) end = shell_ptr + 10 + strlen(shell_ptr + 10);
+            if ((end - (shell_ptr + 10)) < 511) {
+                strncpy(raw_cmd, shell_ptr + 10, end - (shell_ptr + 10));
+                url_decode(shell_cmd, raw_cmd);
+                run_command(shell_cmd, shell_output, sizeof(shell_output));
+            }
+        }
+        
+        o += sprintf(body+o, "<div class='card'><h2>💻 Web Terminal</h2>"
+            "<div style='background:#300;border:1px solid #f00;padding:10px;margin-bottom:15px;'>"
+            "<b style='color:#f66'>⚠️ WARNING:</b> Commands run as root. Be careful!"
+            "</div>"
+            "<form><input type='hidden' name='page' value='shell'>"
+            "<input type='text' name='shell_cmd' placeholder='Enter command...' style='width:80%%;' autofocus>"
+            "<button>Run</button></form>"
+            "<pre style='background:#000;padding:15px;min-height:300px;max-height:500px;overflow-y:auto;white-space:pre-wrap;'>%s</pre>"
+            "<p style='font-size:10px'>Try: <code>ls -la</code> | <code>cat /proc/cpuinfo</code> | <code>df -h</code> | <code>ps aux</code></p>"
+            "</div>", shell_output);
+    }
+    
+    // --- USAGE PAGE ---
+    else if (strcmp(page, "usage") == 0) {
+        // Read current session data from /proc/net/dev
+        unsigned long rx_bytes = 0, tx_bytes = 0;
+        FILE *netdev = fopen("/proc/net/dev", "r");
+        if (netdev) {
+            char line[256];
+            while (fgets(line, sizeof(line), netdev)) {
+                if (strstr(line, "rmnet") || strstr(line, "wwan") || strstr(line, "usb0")) {
+                    unsigned long iface_rx = 0, iface_tx = 0;
+                    if (sscanf(line, " %*[^:]: %lu %*d %*d %*d %*d %*d %*d %*d %lu", &iface_rx, &iface_tx) == 2) {
+                        rx_bytes += iface_rx;
+                        tx_bytes += iface_tx;
+                    }
+                }
+            }
+            fclose(netdev);
+        }
+        
+        // Format sizes
+        char rx_str[32], tx_str[32], total_str[32];
+        unsigned long total = rx_bytes + tx_bytes;
+        if (rx_bytes >= 1073741824) snprintf(rx_str, sizeof(rx_str), "%.2f GB", rx_bytes/1073741824.0);
+        else if (rx_bytes >= 1048576) snprintf(rx_str, sizeof(rx_str), "%.1f MB", rx_bytes/1048576.0);
+        else snprintf(rx_str, sizeof(rx_str), "%.1f KB", rx_bytes/1024.0);
+        
+        if (tx_bytes >= 1073741824) snprintf(tx_str, sizeof(tx_str), "%.2f GB", tx_bytes/1073741824.0);
+        else if (tx_bytes >= 1048576) snprintf(tx_str, sizeof(tx_str), "%.1f MB", tx_bytes/1048576.0);
+        else snprintf(tx_str, sizeof(tx_str), "%.1f KB", tx_bytes/1024.0);
+        
+        if (total >= 1073741824) snprintf(total_str, sizeof(total_str), "%.2f GB", total/1073741824.0);
+        else if (total >= 1048576) snprintf(total_str, sizeof(total_str), "%.1f MB", total/1048576.0);
+        else snprintf(total_str, sizeof(total_str), "%.1f KB", total/1024.0);
+        
+        // Get uptime for session duration
+        float uptime_secs = 0;
+        FILE *up = fopen("/proc/uptime", "r"); if(up){fscanf(up,"%f",&uptime_secs);fclose(up);}
+        int hours = (int)uptime_secs / 3600;
+        int mins = ((int)uptime_secs % 3600) / 60;
+        
+        o += sprintf(body+o, "<div class='card'><h2>📊 Data Usage Monitor</h2>"
+            "<h3>📱 Current Session</h3>"
+            "<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;'>"
+            "<div style='background:#001a00;padding:20px;border:1px solid #0a4;border-radius:5px;text-align:center;'>"
+            "<div style='font-size:12px;color:#888;'>Downloaded</div>"
+            "<div style='font-size:24px;color:#0f0;'>↓ %s</div></div>"
+            "<div style='background:#001a00;padding:20px;border:1px solid #0a4;border-radius:5px;text-align:center;'>"
+            "<div style='font-size:12px;color:#888;'>Uploaded</div>"
+            "<div style='font-size:24px;color:#0ff;'>↑ %s</div></div>"
+            "<div style='background:#001a00;padding:20px;border:1px solid #0a4;border-radius:5px;text-align:center;'>"
+            "<div style='font-size:12px;color:#888;'>Total</div>"
+            "<div style='font-size:24px;color:#ff0;'>%s</div></div>"
+            "</div>"
+            "<p style='font-size:11px;'>Session duration: %dh %dm</p>",
+            rx_str, tx_str, total_str, hours, mins);
+        
+        // Save current session if requested
+        if (strstr(buffer, "save_session=1")) {
+            FILE *hist = fopen("/data/usage_history.txt", "a");
+            if (hist) {
+                time_t now = time(NULL);
+                struct tm *t = localtime(&now);
+                fprintf(hist, "%04d-%02d-%02d %02d:%02d,%lu,%lu\n",
+                    t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
+                    t->tm_hour, t->tm_min, rx_bytes, tx_bytes);
+                fclose(hist);
+            }
+            o += sprintf(body+o, "<p style='color:#0f0'>✅ Session saved to history</p>");
+        }
+        
+        o += sprintf(body+o, 
+            "<form><input type='hidden' name='page' value='usage'>"
+            "<input type='hidden' name='save_session' value='1'>"
+            "<button>💾 Save Session</button></form>");
+        
+        // Historical data
+        o += sprintf(body+o, "<hr><h3>📈 Usage History</h3>");
+        FILE *hist = fopen("/data/usage_history.txt", "r");
+        if (hist) {
+            o += sprintf(body+o, "<table style='width:100%%;'><tr><th>Date</th><th>↓ RX</th><th>↑ TX</th><th>Total</th></tr>");
+            char line[128];
+            unsigned long total_hist_rx = 0, total_hist_tx = 0;
+            while (fgets(line, sizeof(line), hist)) {
+                char date[32];
+                unsigned long hrx = 0, htx = 0;
+                if (sscanf(line, "%31[^,],%lu,%lu", date, &hrx, &htx) == 3) {
+                    total_hist_rx += hrx;
+                    total_hist_tx += htx;
+                    char hrx_s[16], htx_s[16], htot_s[16];
+                    unsigned long htot = hrx + htx;
+                    snprintf(hrx_s, sizeof(hrx_s), "%.1fM", hrx/1048576.0);
+                    snprintf(htx_s, sizeof(htx_s), "%.1fM", htx/1048576.0);
+                    snprintf(htot_s, sizeof(htot_s), "%.1fM", htot/1048576.0);
+                    o += sprintf(body+o, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", date, hrx_s, htx_s, htot_s);
+                }
+            }
+            fclose(hist);
+            
+            // Total row
+            char total_rx_s[32], total_tx_s[32];
+            if (total_hist_rx >= 1073741824) snprintf(total_rx_s, sizeof(total_rx_s), "%.2f GB", total_hist_rx/1073741824.0);
+            else snprintf(total_rx_s, sizeof(total_rx_s), "%.1f MB", total_hist_rx/1048576.0);
+            if (total_hist_tx >= 1073741824) snprintf(total_tx_s, sizeof(total_tx_s), "%.2f GB", total_hist_tx/1073741824.0);
+            else snprintf(total_tx_s, sizeof(total_tx_s), "%.1f MB", total_hist_tx/1048576.0);
+            
+            o += sprintf(body+o, "<tr style='border-top:2px solid #0f0;font-weight:bold;'><td>TOTAL</td><td>%s</td><td>%s</td><td></td></tr></table>",
+                total_rx_s, total_tx_s);
+        } else {
+            o += sprintf(body+o, "<p style='color:#888'>No historical data yet. Save sessions to track usage.</p>");
+        }
+        
+        // Clear history button
+        if (strstr(buffer, "clear_history=1")) {
+            unlink("/data/usage_history.txt");
+            o += sprintf(body+o, "<p style='color:#ff0'>🗑️ History cleared</p>");
+        }
+        o += sprintf(body+o, 
+            "<form><input type='hidden' name='page' value='usage'>"
+            "<input type='hidden' name='clear_history' value='1'>"
+            "<button class='warn' onclick=\"return confirm('Clear all history?')\">🗑️ Clear History</button></form>");
+        
+        o += sprintf(body+o, "</div>");
     }
     
     strcat(body, "</body></html>");

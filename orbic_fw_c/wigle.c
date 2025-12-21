@@ -30,6 +30,10 @@ int config_load(AppConfig *cfg) {
             cfg->auto_upload = atoi(line + 12);
         } else if (strncmp(line, "auto_wardrive=", 14) == 0) {
             cfg->auto_wardrive = atoi(line + 14);
+        } else if (strncmp(line, "default_ttl=", 12) == 0) {
+            cfg->default_ttl = atoi(line + 12);
+        } else if (strncmp(line, "spoofed_mac=", 12) == 0) {
+            strncpy(cfg->spoofed_mac, line + 12, 17);
         }
     }
     fclose(fp);
@@ -46,6 +50,8 @@ int config_save(const AppConfig *cfg) {
     fprintf(fp, "opencellid_token=%s\n", cfg->opencellid_token);
     fprintf(fp, "auto_upload=%d\n", cfg->auto_upload);
     fprintf(fp, "auto_wardrive=%d\n", cfg->auto_wardrive);
+    fprintf(fp, "default_ttl=%d\n", cfg->default_ttl);
+    fprintf(fp, "spoofed_mac=%s\n", cfg->spoofed_mac);
     
     fclose(fp);
     return 0;
