@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="DagShell Webflasher - Browser-based tool for installing DagShell on the Orbic RCL400.">
+    <title>Orbic Flasher - DagShell</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Forge.js for X.509 certificate generation (local copy for offline use) -->
+    <script src="js/forge.min.js"></script>
+    <style>
+        /* Flasher-specific styles */
+        .flasher-step {
+            background: rgba(0, 30, 0, 0.6);
+            border: 1px solid var(--green-dark);
+            padding: 20px;
+            margin: 15px 0;
+            position: relative;
+        }
+
+        .flasher-step.active {
+            border-color: var(--green-primary);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+        }
+
+        .flasher-step.completed {
+            border-color: var(--cyan);
+        }
+
+        .flasher-step.completed::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: var(--cyan);
+            font-size: 20px;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: var(--green-dark);
+            border: 2px solid var(--green-primary);
+            border-radius: 50%;
+            text-align: center;
+            line-height: 26px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .step-title {
+            display: inline;
+            font-size: 18px;
+            color: var(--cyan);
+        }
+
+        .step-content {
+            margin-top: 15px;
+            padding-left: 40px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .input-group input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px 15px;
+            background: #000;
+            border: 1px solid var(--green-dark);
+            color: var(--green-primary);
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--green-primary);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        .btn-action {
+            padding: 12px 25px;
+            background: var(--green-dark);
+            border: 1px solid var(--green-primary);
+            color: var(--green-primary);
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-action:hover:not(:disabled) {
+            background: var(--green-primary);
+            color: #000;
+            box-shadow: 0 0 15px var(--green-primary);
+        }
+
+        .btn-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-action.loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .btn-action.loading::after {
+            content: '⟳';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--green-primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: translateX(-50%) rotate(0deg);
+            }
+
+            to {
+                transform: translateX(-50%) rotate(360deg);
+            }
+        }
+
+        .log-output {
+            background: #000;
+            border: 1px solid var(--green-dark);
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.8;
+            margin: 15px 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .log-output .log-info {
+            color: var(--cyan);
+        }
+
+        .log-output .log-success {
+            color: var(--green-primary);
+        }
+
+        .log-output .log-error {
+            color: var(--red);
+        }
+
+        .log-output .log-warning {
+            color: var(--yellow);
+        }
+
+        .download-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .download-item {
+            background: rgba(0, 40, 0, 0.5);
+            border: 1px solid var(--green-dark);
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .download-item:hover {
+            border-color: var(--cyan);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        .download-item .icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .download-item a {
+            display: block;
+            margin-top: 10px;
+        }
+
+        .command-box {
+            background: #000;
+            border: 1px solid var(--green-primary);
+            padding: 15px;
+            margin: 10px 0;
+            position: relative;
+        }
+
+        .command-box code {
+            background: none;
+            color: var(--yellow);
+            font-size: 13px;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            font-size: 12px;
+            background: var(--green-dark);
+            border: 1px solid var(--green-primary);
+            color: var(--green-primary);
+            cursor: pointer;
+        }
+
+        .copy-btn:hover {
+            background: var(--green-primary);
+            color: #000;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="scanlines"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <pre class="ascii-logo">
+ ____             ____  _          _ _ 
+|  _ \  __ _  __ / ___|| |__   ___| | |
+| | | |/ _` |/ _\___ \| '_ \ / _ \ | |
+| |_| | (_| | (_| |__) | | | |  __/ | |
+|____/ \__,_|\__, |___/|_| |_|\___|_|_|
+             |___/                     
+            </pre>
+            <p class="tagline">[ Orbic RCL400 Webflasher ]</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <a href="index.html">[HOME]</a>
+            <a href="installation.html">[INSTALLATION]</a>
+            <a href="features.html">[FEATURES]</a>
+            <a href="faq.html">[FAQ]</a>
+            <a href="orbic.html" class="active">[FLASHER]</a>
+        </nav>
+
+        <!-- Intro -->
+        <div class="card">
+            <h1>⚡ Orbic RCL400 Webflasher</h1>
+            <p>This tool helps you install DagShell on your Orbic RCL400 directly from your browser. Follow the steps
+                below in order.</p>
+
+            <div class="alert alert-warning">
+                ⚠️ <strong>Requirements:</strong> You must be connected to the Orbic's WiFi network (192.168.1.1) for
+                steps 3 and 4.
+            </div>
+        </div>
+
+        <!-- Step 1: Generate PKI -->
+        <div class="flasher-step" id="step1">
+            <span class="step-number">1</span>
+            <h3 class="step-title">Generate PKI Certificates</h3>
+            <div class="step-content">
+                <p>Generate unique SSL certificates for secure HTTPS access to DagShell.</p>
+                <div class="input-group">
+                    <button class="btn-action" id="btn-generate-pki" onclick="generatePKI()">
+                        🔐 Generate Certificates
+                    </button>
+                </div>
+                <div class="log-output" id="log-pki" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- Step 2: Download Files -->
+        <div class="flasher-step" id="step2">
+            <span class="step-number">2</span>
+            <h3 class="step-title">Download All Required Files</h3>
+            <div class="step-content">
+                <p>Download the firmware, scripts, and place them in a folder together with your PKI certificates from
+                    Step 1.</p>
+
+                <h4 style="color:var(--cyan);margin:15px 0 10px;">📦 Firmware Files</h4>
+                <div class="download-grid">
+                    <div class="download-item">
+                        <div class="icon">💾</div>
+                        <strong>orbic_app</strong>
+                        <p style="font-size:12px;color:var(--text-muted);">Main firmware binary</p>
+                        <a href="https://github.com/dagnazty/DagShell/raw/main/orbic_fw_c/orbic_app" class="btn-action"
+                            download>Download</a>
+                    </div>
+                    <div class="download-item">
+                        <div class="icon">📜</div>
+                        <strong>dagshell_boot.sh</strong>
+                        <p style="font-size:12px;color:var(--text-muted);">Boot script</p>
+                        <a href="https://github.com/dagnazty/DagShell/raw/main/dagshell_boot.sh" class="btn-action"
+                            download>Download</a>
+                    </div>
+                </div>
+
+                <h4 style="color:var(--cyan);margin:15px 0 10px;">🐍 Python Scripts</h4>
+                <div class="download-grid">
+                    <div class="download-item">
+                        <div class="icon">🔓</div>
+                        <strong>enable_shell.py</strong>
+                        <p style="font-size:12px;color:var(--text-muted);">Opens root shell on port 24</p>
+                        <a href="https://github.com/dagnazty/DagShell/raw/main/enable_shell.py" class="btn-action"
+                            download>Download</a>
+                    </div>
+                    <div class="download-item">
+                        <div class="icon">🚀</div>
+                        <strong>deploy_base64.py</strong>
+                        <p style="font-size:12px;color:var(--text-muted);">Deploys firmware to device</p>
+                        <a href="https://github.com/dagnazty/DagShell/raw/main/deploy_base64.py" class="btn-action"
+                            download>Download</a>
+                    </div>
+                    <div class="download-item">
+                        <div class="icon">📋</div>
+                        <strong>requirements.txt</strong>
+                        <p style="font-size:12px;color:var(--text-muted);">Python dependencies</p>
+                        <a href="https://github.com/dagnazty/DagShell/raw/main/requirements.txt" class="btn-action"
+                            download>Download</a>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    💡 <strong>Folder structure:</strong> Place all downloaded files + your 3 DER certificates (from
+                    Step 1) in the same folder.
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Enable Shell -->
+        <div class="flasher-step" id="step3">
+            <span class="step-number">3</span>
+            <h3 class="step-title">Enable Root Shell</h3>
+            <div class="step-content">
+                <p>Enter your Orbic admin password (found on device label or set in web UI) to enable root shell access.
+                </p>
+
+                <h4 style="color:var(--cyan);margin:15px 0 10px;">Option A: Browser (Try First)</h4>
+                <div class="input-group">
+                    <input type="password" id="admin-password" placeholder="Enter admin password..."
+                        onkeypress="if(event.key==='Enter')enableShell()">
+                    <button class="btn-action" id="btn-enable-shell" onclick="enableShell()">
+                        🔓 Enable Shell
+                    </button>
+                </div>
+                <div class="log-output" id="log-shell" style="display:none;"></div>
+
+                <div class="alert alert-warning">
+                    ⚠️ <strong>Browser CORS Issue:</strong> If you see "Cannot connect" errors, your browser is blocking
+                    the request. Use Python instead (Option B below).
+                </div>
+
+                <h4 style="color:var(--cyan);margin:15px 0 10px;">Option B: Python Script (Reliable)</h4>
+                <p>Run this command with your admin password:</p>
+                <div class="command-box">
+                    <code>python enable_shell.py YOUR_PASSWORD</code>
+                    <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Deploy -->
+        <div class="flasher-step" id="step4">
+            <span class="step-number">4</span>
+            <h3 class="step-title">Deploy Firmware</h3>
+            <div class="step-content">
+                <p>After the shell is enabled, run the deploy script to install DagShell:</p>
+
+                <div class="alert alert-info">
+                    💡 Make sure you have Python 3 installed with <code>requests</code> module.
+                </div>
+
+                <h4 style="color:var(--cyan);margin:15px 0 10px;">Option A: Full Deploy (Recommended)</h4>
+                <p>Navigate to the DagShell folder and run:</p>
+                <div class="command-box">
+                    <code>python deploy_base64.py</code>
+                    <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                </div>
+
+                <h4 style="color:var(--cyan);margin:15px 0 10px;">Option B: Quick Deploy (One-Liner)</h4>
+                <p>If you downloaded files to ~/Downloads:</p>
+                <div class="command-box">
+                    <code>cd ~/Downloads && git clone https://github.com/dagnazty/DagShell.git && cd DagShell && pip install -r requirements.txt && python deploy_base64.py</code>
+                    <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                </div>
+
+                <div class="alert alert-warning" style="margin-top:20px;">
+                    ⚠️ After deployment completes, access DagShell at: <a href="https://192.168.1.1:8443/"
+                        target="_blank">https://192.168.1.1:8443/</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>DagShell &copy; 2025 | Created by <a href="https://github.com/dagnazty" target="_blank">dag</a></p>
+            <p>Built with ❤️ and <code>gcc</code> | <a href="https://github.com/dagnazty/DagShell"
+                    target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script src="js/orbic-flasher.js"></script>
+</body>
+
+</html>
+</code>
