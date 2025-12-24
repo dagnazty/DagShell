@@ -60,16 +60,27 @@ A terminal-styled custom firmware for the **Orbic RCL400** hotspot with hacking 
 ## Requirements
 
 - Orbic RCL400 hotspot
-- ARM cross-compiler (included in `gcc/` folder)
-- Python 3 with `requests` module
+- **Windows:** ARM cross-compiler (included in `gcc_win/` folder)
+- **macOS:** Custom ARM toolchain (included in `gcc_mac/` folder, built with crosstool-ng targeting kernel 3.2 for compatibility)
+- Python 3 with `requests` and `cryptography` modules
 
 ## Building
 
 ```powershell
+# Windows
 cd orbic_fw_c
 python gen_pki.py   # Generate 2-Tier PKI (Root + Leaf)
 .\build.ps1        # Compile firmware
 ```
+
+```bash
+# macOS / Linux
+cd orbic_fw_c
+python3 gen_pki.py  # Generate 2-Tier PKI (Root + Leaf)
+./build.sh          # Compile firmware (auto-builds BearSSL)
+```
+
+> **Note for macOS:** The `gcc_mac/` folder contains a custom ARM toolchain built with crosstool-ng targeting Linux kernel 3.2 headers. This ensures compatibility with the Orbic's older kernel (3.18). Standard Homebrew ARM compilers target newer kernels and will NOT work.
 
 This produces `orbic_app` (static ARM binary) and DER certificate files.
 

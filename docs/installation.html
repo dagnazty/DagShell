@@ -54,10 +54,10 @@
 
             <h3>Software</h3>
             <ul>
-                <li><strong>ARM Cross-Compiler</strong> - <code>arm-none-linux-gnueabihf-gcc</code> (from ARM GNU
-                    Toolchain)</li>
-                <li><strong>Python 3</strong> - For running deployment scripts</li>
-                <li><strong>PowerShell</strong> - For Windows build script</li>
+                <li><strong>Windows:</strong> ARM cross-compiler (included in <code>gcc_win/</code> folder)</li>
+                <li><strong>macOS:</strong> Custom ARM toolchain (included in <code>gcc_mac/</code>, targets kernel 3.2
+                    for compatibility)</li>
+                <li><strong>Python 3</strong> - with <code>requests</code> and <code>cryptography</code> modules</li>
             </ul>
         </div>
 
@@ -74,17 +74,24 @@ cd DagShell</code></pre>
 
                 <div class="step">
                     <h3>ARM Toolchain (Included)</h3>
-                    <p>The ARM GNU Toolchain is <strong>already included</strong> in the <code>gcc_win</code> folder —
-                        no download required!</p>
-                    <p>The <code>build.ps1</code> script automatically uses the bundled toolchain. If you prefer to use
-                        your own installation, edit the path in <code>build.ps1</code>.</p>
+                    <p><strong>Windows:</strong> The ARM GNU Toolchain is included in the <code>gcc/</code> folder.
+                        The <code>build.ps1</code> script uses it automatically.</p>
+                    <p><strong>macOS:</strong> A custom crosstool-ng toolchain is included in <code>gcc_mac/</code>.
+                        This toolchain targets Linux kernel 3.2 headers for compatibility with the Orbic's older
+                        kernel (3.18). <em>Standard Homebrew ARM compilers will NOT work</em> as they target newer
+                        kernels.</p>
                 </div>
 
                 <div class="step">
                     <h3>Build the Firmware</h3>
+                    <p><strong>Windows (PowerShell):</strong></p>
                     <pre><code>cd orbic_fw_c
-python gen_pki.py # Generate PKI Chain
-.\build.ps1</code></pre>
+python gen_pki.py   # Generate PKI Chain
+.\build.ps1         # Compile firmware</code></pre>
+                    <p><strong>macOS / Linux (Bash):</strong></p>
+                    <pre><code>cd orbic_fw_c
+python3 gen_pki.py  # Generate PKI Chain
+./build.sh          # Compile firmware</code></pre>
                     <p>This produces <code>orbic_app</code> (static ARM binary) and DER certificates.</p>
                 </div>
             </div>

@@ -122,10 +122,18 @@
                     <span class="faq-toggle">+</span>
                 </div>
                 <div class="faq-answer">
-                    <p>The ARM cross-compiler is included in the <code>gcc/</code> folder. Just run
-                        <code>.\build.ps1</code> to compile. The firmware is compiled statically to avoid library
-                        dependencies.
+                    <p><strong>Windows:</strong> The ARM cross-compiler is included in the <code>gcc_win/</code> folder.
+                        Run
+                        <code>.\build.ps1</code> to compile.
                     </p>
+                    <p><strong>macOS:</strong> A custom crosstool-ng toolchain is included in <code>gcc_mac/</code>.
+                        This
+                        toolchain targets Linux kernel 3.2 headers to ensure compatibility with the Orbic's kernel
+                        (3.18).
+                        Standard Homebrew ARM compilers target newer kernels and will cause "SIGABRT" or "SIGSEGV"
+                        crashes
+                        when the binary runs on the device.</p>
+                    <p>Run <code>./build.sh</code> on macOS/Linux to compile.</p>
                 </div>
             </div>
 
