@@ -341,29 +341,23 @@
             <span class="step-number">3</span>
             <h3 class="step-title">Enable Root Shell</h3>
             <div class="step-content">
-                <p>Enter your Orbic admin password (found on device label or set in web UI) to enable root shell access.
-                </p>
+                <p>Connect to the Orbic's WiFi network, then run this command with your admin password (found on device
+                    label or set in web UI):</p>
 
-                <h4 style="color:var(--cyan);margin:15px 0 10px;">Option A: Browser (Try First)</h4>
-                <div class="input-group">
-                    <input type="password" id="admin-password" placeholder="Enter admin password..."
-                        onkeypress="if(event.key==='Enter')enableShell()">
-                    <button class="btn-action" id="btn-enable-shell" onclick="enableShell()">
-                        🔓 Enable Shell
-                    </button>
-                </div>
-                <div class="log-output" id="log-shell" style="display:none;"></div>
-
-                <div class="alert alert-warning">
-                    ⚠️ <strong>Browser CORS Issue:</strong> If you see "Cannot connect" errors, your browser is blocking
-                    the request. Use Python instead (Option B below).
-                </div>
-
-                <h4 style="color:var(--cyan);margin:15px 0 10px;">Option B: Python Script (Reliable)</h4>
-                <p>Run this command with your admin password:</p>
                 <div class="command-box">
                     <code>python enable_shell.py YOUR_PASSWORD</code>
                     <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                </div>
+
+                <p style="margin-top:15px;">Example:</p>
+                <div class="command-box">
+                    <code>python enable_shell.py 1d495f58</code>
+                    <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                </div>
+
+                <div class="alert alert-info">
+                    💡 This opens port 24 on the device for shell access. You should see "SUCCESS! Port 24 is OPEN!"
+                    when complete.
                 </div>
             </div>
         </div>
