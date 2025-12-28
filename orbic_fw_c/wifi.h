@@ -37,17 +37,19 @@ int wifi_is_connected();
 
 // --- Bluetooth Flock Wardriving ---
 typedef struct {
-  char mac[18];  // BT MAC address
-  char name[64]; // Device name
-  int rssi;      // Signal strength
-  char lat[16];  // Latitude when discovered
-  char lon[16];  // Longitude when discovered
+  char mac[18];          // BT MAC address
+  char name[64];         // Device name
+  char manufacturer[32]; // OUI manufacturer name
+  int rssi;              // Signal strength
+  char lat[16];          // Latitude when discovered
+  char lon[16];          // Longitude when discovered
   time_t first_seen;
   time_t last_seen;
 } BluetoothDevice;
 
 // Add a discovered BT device
-int bt_add_device(const char *mac, const char *name, int rssi);
+int bt_add_device(const char *mac, const char *name, int rssi,
+                  const char *manufacturer);
 
 // Get BT devices as JSON
 int bt_get_json(char *buffer, int max_len);

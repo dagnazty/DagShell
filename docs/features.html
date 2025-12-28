@@ -262,16 +262,29 @@
                     </tr>
                     <tr>
                         <td>Bluetooth Devices</td>
-                        <td>Pi BT adapter</td>
+                        <td>Pi BT adapter + OUI lookup</td>
                         <td>wardrive_bt_*.csv</td>
                     </tr>
                     <tr>
                         <td>GPS Coordinates</td>
-                        <td>Pi USB GPS</td>
+                        <td>Pi USB GPS (ECEF auto-conversion)</td>
                         <td>(used for all logs)</td>
                     </tr>
                 </tbody>
             </table>
+
+            <h3>OUI Manufacturer Lookup</h3>
+            <p>Bluetooth devices are automatically looked up against the <a
+                    href="https://dagnazty.github.io/OUI-Master-Database" target="_blank">OUI Master Database</a>:</p>
+            <ul>
+                <li><strong>Prefix-based API</strong> - Downloads only the needed prefix files on demand</li>
+                <li><strong>Cached locally</strong> - Stored in <code>/tmp/oui_cache/</code> for 30 days</li>
+                <li><strong>Random/Private detection</strong> - Identifies locally administered MAC addresses</li>
+            </ul>
+
+            <h3>ECEF GPS Conversion</h3>
+            <p>For u-blox GPS modules that output ECEF (Earth-Centered, Earth-Fixed) coordinates instead of standard
+                lat/lon, the companion automatically converts to geodetic coordinates using WGS84.</p>
 
             <h3>Setup & Auto-Start</h3>
             <pre><code># On Raspberry Pi:

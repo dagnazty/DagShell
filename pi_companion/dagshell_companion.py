@@ -40,6 +40,119 @@ ssl_ctx = ssl.create_default_context()
 ssl_ctx.check_hostname = False
 ssl_ctx.verify_mode = ssl.CERT_NONE
 
+# OUI database - prefix-based cache (downloaded on demand)
+oui_cache = {}  # Cache of prefix -> {oui: entry} data
+OUI_API_BASE = "https://dagnazty.github.io/OUI-Master-Database/api/"
+OUI_CACHE_DIR = "/tmp/oui_cache"
+
+
+def load_oui_database():
+    """Initialize OUI cache directory."""
+    import os
+    try:
+        os.makedirs(OUI_CACHE_DIR, exist_ok=True)
+        print(f"[OUI] Using prefix-based API at {OUI_API_BASE}")
+        print(f"[OUI] Cache directory: {OUI_CACHE_DIR}")
+        return True
+    except Exception as e:
+        print(f"[OUI] Failed to create cache dir: {e}")
+        return False
+
+
+def fetch_oui_prefix(prefix):
+    """Fetch and cache OUI data for a given 2-char prefix (e.g., '70' for 70:xx:xx)."""
+    import os
+    
+    prefix = prefix.upper()
+    
+    # Check memory cache first
+    if prefix in oui_cache:
+        return oui_cache[prefix]
+    
+    # Check disk cache
+    cache_file = os.path.join(OUI_CACHE_DIR, f"{prefix}.json")
+    try:
+        if os.path.exists(cache_file):
+            cache_age = time.time() - os.path.getmtime(cache_file)
+            if cache_age < 2592000:  # 30 days
+                with open(cache_file, 'r') as f:
+                    data = json.load(f)
+                    oui_cache[prefix] = data
+                    return data
+    except Exception:
+        pass
+    
+    # Download from API
+    url = f"{OUI_API_BASE}{prefix}.json"
+    try:
+        req = urllib.request.Request(url)
+        req.add_header('User-Agent', 'DagShell-Pi-Companion/1.0')
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+            oui_cache[prefix] = data
+            
+            # Save to disk cache
+            try:
+                with open(cache_file, 'w') as f:
+                    json.dump(data, f)
+            except Exception:
+                pass
+            
+            return data
+    except Exception as e:
+        # Return empty dict on error (prefix might not exist)
+        oui_cache[prefix] = {}
+        return {}
+
+
+def lookup_oui_manufacturer(mac):
+    """Look up manufacturer from OUI database using prefix-based API.
+    
+    Args:
+        mac: MAC address in format XX:XX:XX:XX:XX:XX
+        
+    Returns:
+        Manufacturer name, "Random/Private" for locally administered addresses,
+        or "Unknown" if not found
+    """
+    try:
+        # Normalize MAC address (uppercase, colon-separated)
+        mac = mac.upper().replace("-", ":")
+        parts = mac.split(":")
+        if len(parts) < 3:
+            return "Unknown"
+        
+        # Check if this is a locally administered address (random/private)
+        # Bit 1 of the first octet being set indicates locally administered
+        # These are used by BLE devices for privacy and won't be in any OUI database
+        try:
+            first_byte = int(parts[0], 16)
+            if first_byte & 0x02:  # Bit 1 set = locally administered
+                return "Random/Private"
+        except ValueError:
+            pass
+        
+        # Get prefix (first 2 hex chars) and OUI key (XX:XX:XX format)
+        prefix = parts[0]
+        oui_key = f"{parts[0]}:{parts[1]}:{parts[2]}"
+        
+        # Fetch prefix data (from cache or API)
+        prefix_data = fetch_oui_prefix(prefix)
+        
+        if oui_key in prefix_data:
+            entry = prefix_data[oui_key]
+            if isinstance(entry, dict):
+                # API uses 'm' for manufacturer
+                return entry.get("m", "Unknown")
+            return str(entry)
+        
+        return "Unknown"
+        
+    except Exception as e:
+        print(f"[OUI] Lookup error: {e}")
+        return "Unknown"
+
+
 
 def send_to_orbic(endpoint, data):
     """Send data to Orbic DagShell API"""
@@ -145,6 +258,37 @@ def gps_thread():
     global current_lat, current_lon, running
     print("[GPS] Starting GPS thread...")
     
+    import math
+    
+    def ecef_to_geodetic(x, y, z):
+        """Convert ECEF coordinates to geodetic (lat, lon, alt).
+        WGS84 ellipsoid parameters."""
+        a = 6378137.0  # Semi-major axis
+        f = 1/298.257223563  # Flattening
+        b = a * (1 - f)  # Semi-minor axis
+        e2 = (a**2 - b**2) / a**2  # First eccentricity squared
+        ep2 = (a**2 - b**2) / b**2  # Second eccentricity squared
+        
+        # Longitude
+        lon = math.atan2(y, x)
+        
+        # Iterative latitude calculation (Bowring's method)
+        p = math.sqrt(x**2 + y**2)
+        lat = math.atan2(z, p * (1 - e2))  # Initial estimate
+        
+        for _ in range(10):  # Usually converges in 2-3 iterations
+            N = a / math.sqrt(1 - e2 * math.sin(lat)**2)
+            lat_new = math.atan2(z + e2 * N * math.sin(lat), p)
+            if abs(lat_new - lat) < 1e-12:
+                break
+            lat = lat_new
+        
+        # Altitude
+        N = a / math.sqrt(1 - e2 * math.sin(lat)**2)
+        alt = p / math.cos(lat) - N
+        
+        return math.degrees(lat), math.degrees(lon), alt
+    
     try:
         import gps
         gpsd = gps.gps(mode=gps.WATCH_ENABLE | gps.WATCH_NEWSTYLE)
@@ -163,7 +307,17 @@ def gps_thread():
                 if report['class'] == 'TPV':
                     lat = getattr(report, 'lat', None)
                     lon = getattr(report, 'lon', None)
-                    if lat and lon:
+                    
+                    # Check if lat/lon are 0 but ECEF is available
+                    if (lat is None or lat == 0) and hasattr(report, 'ecefx'):
+                        ecefx = getattr(report, 'ecefx', None)
+                        ecefy = getattr(report, 'ecefy', None)
+                        ecefz = getattr(report, 'ecefz', None)
+                        if ecefx and ecefy and ecefz:
+                            lat, lon, _ = ecef_to_geodetic(ecefx, ecefy, ecefz)
+                            print(f"[GPS] Using ECEF conversion")
+                    
+                    if lat is not None and lon is not None and (lat != 0 or lon != 0):
                         current_lat = f"{lat:.6f}"
                         current_lon = f"{lon:.6f}"
                         print(f"[GPS] {current_lat}, {current_lon}")
@@ -177,9 +331,21 @@ def gps_thread():
                 for line in result.stdout.splitlines():
                     if '"class":"TPV"' in line:
                         data = json.loads(line)
-                        if 'lat' in data and 'lon' in data:
-                            current_lat = f"{data['lat']:.6f}"
-                            current_lon = f"{data['lon']:.6f}"
+                        lat = data.get('lat', 0)
+                        lon = data.get('lon', 0)
+                        
+                        # Check if lat/lon are 0 but ECEF is available
+                        if (lat == 0 or lon == 0) and 'ecefx' in data:
+                            ecefx = data.get('ecefx')
+                            ecefy = data.get('ecefy')
+                            ecefz = data.get('ecefz')
+                            if ecefx and ecefy and ecefz:
+                                lat, lon, _ = ecef_to_geodetic(ecefx, ecefy, ecefz)
+                                print(f"[GPS] Using ECEF conversion")
+                        
+                        if lat != 0 or lon != 0:
+                            current_lat = f"{lat:.6f}"
+                            current_lon = f"{lon:.6f}"
                             print(f"[GPS] {current_lat}, {current_lon}")
                             send_to_orbic(f"/?set_gps={current_lat},{current_lon}", None)
                             break
@@ -305,8 +471,11 @@ def bt_thread():
                         devices[mac] = name
             
             for mac, name in devices.items():
-                print(f"[BT] Found: {mac} - {name}")
-                encoded = urllib.parse.quote(f"{mac},-50,{name}")
+                # Look up manufacturer from OUI database
+                manufacturer = lookup_oui_manufacturer(mac)
+                print(f"[BT] Found: {mac} - {name} ({manufacturer})")
+                # Format: mac,rssi,name,manufacturer
+                encoded = urllib.parse.quote(f"{mac},-50,{name},{manufacturer}")
                 send_to_orbic(f"/?set_bt={encoded}", None)
             
             if not devices:
@@ -510,6 +679,9 @@ def main():
     print(f"Orbic: {ORBIC_URL}")
     print(f"BT Adapter: {BT_INTERFACE}")
     print("=" * 50)
+    
+    # Load OUI database (one-time download, cached for 24h)
+    load_oui_database()
     
     # One-shot deauth mode (CLI)
     if args.deauth:

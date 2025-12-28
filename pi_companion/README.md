@@ -69,8 +69,9 @@ sudo python3 dagshell_companion.py --deauth AA:BB:CC:DD:EE:FF
 
 | Feature | Description |
 |---------|-------------|
-| **GPS** | Reads from gpsd, sends to Orbic every 2 seconds |
-| **Bluetooth** | BLE scanning, remotely controlled from Orbic UI |
+| **GPS** | Reads from gpsd with ECEF-to-geodetic conversion for u-blox modules |
+| **Bluetooth** | BLE scanning with OUI manufacturer lookup |
+| **OUI Lookup** | Prefix-based API from [OUI Master Database](https://dagnazty.github.io/OUI-Master-Database) |
 | **WiFi** | Scans networks via `iw`, sends to Orbic for logging |
 | **Remote Control** | Orbic UI can start/stop BT scanning on Pi |
 | **Deauth Attacks** | Remote deauth via Orbic scan page (one-shot or continuous) |
@@ -118,8 +119,20 @@ The Pi Companion polls the Orbic for commands every 3 seconds:
 
 ### No GPS Fix
 - Check GPS antenna has clear sky view
-- Verify: `gpspipe -w -n 10` (should show `lat`/`lon`)
+- Verify: `gpspipe -w -n 10` (should show `lat`/`lon` or `ecefx`/`ecefy`/`ecefz`)
 - Check gpsd service: `sudo systemctl status gpsd`
+- u-blox modules may output ECEF coordinates - the companion auto-converts these
+
+### GPS Shows 0.0, 0.0
+- The companion now handles ECEF-to-geodetic conversion automatically
+- Check `gpsmon` to verify fix (LTP Pos should show valid coordinates)
+- Ensure gpsd is running with `-n` flag for immediate polling
+
+### Bluetooth Shows "Unknown" Manufacturer
+- OUI data is fetched on-demand from the prefix-based API
+- Check internet connectivity on Pi
+- Cache is stored in `/tmp/oui_cache/`
+- Random/Private MACs (locally administered) won't have OUI entries
 
 ### Bluetooth Errors
 - Script auto-detects best adapter

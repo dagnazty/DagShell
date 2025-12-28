@@ -444,7 +444,8 @@ int wifi_is_connected() {
 static BluetoothDevice bt_devices[MAX_BT_DEVICES];
 static int bt_device_count = 0;
 
-int bt_add_device(const char *mac, const char *name, int rssi) {
+int bt_add_device(const char *mac, const char *name, int rssi,
+                  const char *manufacturer) {
   if (!mac || strlen(mac) == 0)
     return -1;
 
@@ -456,6 +457,10 @@ int bt_add_device(const char *mac, const char *name, int rssi) {
       bt_devices[i].last_seen = time(NULL);
       if (name && strlen(name) > 0) {
         strncpy(bt_devices[i].name, name, sizeof(bt_devices[i].name) - 1);
+      }
+      if (manufacturer && strlen(manufacturer) > 0) {
+        strncpy(bt_devices[i].manufacturer, manufacturer,
+                sizeof(bt_devices[i].manufacturer) - 1);
       }
       return 0; // Updated
     }
@@ -473,6 +478,8 @@ int bt_add_device(const char *mac, const char *name, int rssi) {
   BluetoothDevice *dev = &bt_devices[bt_device_count];
   strncpy(dev->mac, mac, sizeof(dev->mac) - 1);
   strncpy(dev->name, name ? name : "Unknown", sizeof(dev->name) - 1);
+  strncpy(dev->manufacturer, manufacturer ? manufacturer : "Unknown",
+          sizeof(dev->manufacturer) - 1);
   dev->rssi = rssi;
   strncpy(dev->lat, lat, sizeof(dev->lat) - 1);
   strncpy(dev->lon, lon, sizeof(dev->lon) - 1);
@@ -480,7 +487,8 @@ int bt_add_device(const char *mac, const char *name, int rssi) {
   dev->last_seen = dev->first_seen;
 
   bt_device_count++;
-  daglogf("BT device added: %s (%s)", mac, name ? name : "Unknown");
+  daglogf("BT device added: %s (%s) - %s", mac, name ? name : "Unknown",
+          manufacturer ? manufacturer : "Unknown");
   return 1; // Added
 }
 
@@ -502,11 +510,13 @@ int bt_get_json(char *buffer, int max_len) {
       escaped_name[k++] = bt_devices[i].name[j];
     }
 
-    offset += snprintf(buffer + offset, max_len - offset,
-                       "{\"mac\":\"%s\",\"name\":\"%s\",\"rssi\":%d,\"lat\":\"%"
-                       "s\",\"lon\":\"%s\"}",
-                       bt_devices[i].mac, escaped_name, bt_devices[i].rssi,
-                       bt_devices[i].lat, bt_devices[i].lon);
+    offset +=
+        snprintf(buffer + offset, max_len - offset,
+                 "{\"mac\":\"%s\",\"name\":\"%s\",\"manufacturer\":\"%s\","
+                 "\"rssi\":%d,\"lat\":\"%"
+                 "s\",\"lon\":\"%s\"}",
+                 bt_devices[i].mac, escaped_name, bt_devices[i].manufacturer,
+                 bt_devices[i].rssi, bt_devices[i].lat, bt_devices[i].lon);
   }
 
   offset += snprintf(buffer + offset, max_len - offset, "]");
@@ -531,13 +541,16 @@ void bt_log_to_file(const char *filepath) {
   // Write CSV header if file is empty
   fseek(fp, 0, SEEK_END);
   if (ftell(fp) == 0) {
-    fprintf(fp, "MAC,Name,RSSI,Latitude,Longitude,FirstSeen,LastSeen\n");
+    fprintf(
+        fp,
+        "MAC,Name,Manufacturer,RSSI,Latitude,Longitude,FirstSeen,LastSeen\n");
   }
 
   for (int i = 0; i < bt_device_count; i++) {
     BluetoothDevice *dev = &bt_devices[i];
-    fprintf(fp, "%s,\"%s\",%d,%s,%s,%ld,%ld\n", dev->mac, dev->name, dev->rssi,
-            dev->lat, dev->lon, (long)dev->first_seen, (long)dev->last_seen);
+    fprintf(fp, "%s,\"%s\",\"%s\",%d,%s,%s,%ld,%ld\n", dev->mac, dev->name,
+            dev->manufacturer, dev->rssi, dev->lat, dev->lon,
+            (long)dev->first_seen, (long)dev->last_seen);
   }
 
   fclose(fp);

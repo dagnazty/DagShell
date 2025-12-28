@@ -424,7 +424,7 @@ void handle_client(br_sslio_context *ioc) {
   }
 
   // API: Receive Bluetooth device from client browser (Web Bluetooth)
-  // Format: /?set_bt=MAC,RSSI,Name
+  // Format: /?set_bt=MAC,RSSI,Name,Manufacturer
   if (strstr(buffer, "set_bt=")) {
     char *bt_ptr = strstr(buffer, "set_bt=");
     if (bt_ptr) {
@@ -439,7 +439,7 @@ void handle_client(br_sslio_context *ioc) {
         len = 255;
       strncpy(raw, bt_ptr + 7, len);
       url_decode(decoded, raw);
-      // Parse MAC,RSSI,Name
+      // Parse MAC,RSSI,Name,Manufacturer
       char *comma1 = strchr(decoded, ',');
       if (comma1) {
         *comma1 = '\0';
@@ -447,12 +447,20 @@ void handle_client(br_sslio_context *ioc) {
         char *comma2 = strchr(comma1 + 1, ',');
         int rssi = -100;
         char *name = "Unknown";
+        char *manufacturer = "Unknown";
         if (comma2) {
           *comma2 = '\0';
           rssi = atoi(comma1 + 1);
-          name = comma2 + 1;
+          char *comma3 = strchr(comma2 + 1, ',');
+          if (comma3) {
+            *comma3 = '\0';
+            name = comma2 + 1;
+            manufacturer = comma3 + 1;
+          } else {
+            name = comma2 + 1;
+          }
         }
-        bt_add_device(mac, name, rssi);
+        bt_add_device(mac, name, rssi, manufacturer);
       }
     }
     char *resp = "HTTP/1.1 200 OK\r\nContent-Type: "
@@ -1533,7 +1541,7 @@ void handle_client(br_sslio_context *ioc) {
         "  fetch('/?cmd=bt_json').then(r=>r.json()).then(function(d){"
         "    var txt='';"
         "    d.forEach(function(dev){"
-        "      txt+=dev.mac+' | '+dev.name+' | '+dev.rssi+'dBm\\n';"
+        "      txt+=dev.mac+' | '+dev.name+' | '+(dev.manufacturer||'Unknown')+' | '+dev.rssi+'dBm\\n';"
         "    });"
         "    document.getElementById('bt-devices').textContent=txt;"
         "    document.getElementById('bt-count').textContent=d.length;"

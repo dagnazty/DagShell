@@ -53,8 +53,9 @@ A terminal-styled custom firmware for the **Orbic RCL400** hotspot with hacking 
 
 ### 🥧 Pi Companion
 - **Raspberry Pi 3B+** or newer (Zero lacks USB power for peripherals)
-- **GPS via USB dongle** (U-Blox7) - sends coordinates to Orbic
-- **Bluetooth scanning** (BLE) - remotely controlled from Orbic UI
+- **GPS via USB dongle** (U-Blox7) - sends coordinates to Orbic with ECEF auto-conversion
+- **Bluetooth scanning** (BLE) - remotely controlled from Orbic UI with OUI manufacturer lookup
+- **OUI Database** - Prefix-based API from [OUI Master Database](https://dagnazty.github.io/OUI-Master-Database)
 - **WiFi scanning** - Pi scans networks and sends to Orbic for logging
 - **Deauth attacks** - One-shot or continuous deauth, controlled from Orbic scan page
 - **Remote control** - Start/Stop BT scanning from Orbic web interface
