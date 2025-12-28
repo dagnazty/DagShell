@@ -38,12 +38,28 @@ A terminal-styled custom firmware for the **Orbic RCL400** hotspot with hacking 
 - **Port Scanner**: Scan IPs for open ports
 - **Firewall Manager**: Block/unblock IPs with iptables
 
+### ⚔️ Attack Tools
+- **DNS Sniffer**: Log DNS queries from connected clients (iptables-based, no promiscuous mode)
+- **ARP Scanner**: Discover devices on local network with OUI vendor lookup
+- **Traceroute**: Network path visualization with hop-by-hop RTT
+- **Evil Twin AP**: Create a fake AP cloning existing SSIDs (uses wlan1)
+- **Captive Portal**: Phishing page templates (WiFi login, social media) with credential logging
+
 ### 📍 GPS Tracker
-- **Auto-GPS on every page** - GPS indicator polls every 30 seconds
-- **Cell tower lookup via OpenCellID** - Browser calls API automatically
-- Browser geolocation as primary source
-- File-based GPS sharing between processes
-- JSON API for programmatic access
+- **Pi GPS Only** - GPS data comes exclusively from the Raspberry Pi companion
+- Auto-refresh every 5 seconds
+- No browser geolocation popups
+- Shared GPS state between processes
+
+### 🥧 Pi Companion
+- **Raspberry Pi 3B+** or newer (Zero lacks USB power for peripherals)
+- **GPS via USB dongle** (U-Blox7) - sends coordinates to Orbic
+- **Bluetooth scanning** (BLE) - remotely controlled from Orbic UI
+- **WiFi scanning** - Pi scans networks and sends to Orbic for logging
+- **Deauth attacks** - One-shot or continuous deauth, controlled from Orbic scan page
+- **Remote control** - Start/Stop BT scanning from Orbic web interface
+- **Auto-start on boot** - systemd service starts automatically
+- Data persisted to CSV files (Wigle-compatible)
 
 ### 📶 Wardriver
 - Scan WiFi networks with GPS coordinates
@@ -86,7 +102,18 @@ This produces `orbic_app` (static ARM binary) and DER certificate files.
 
 ## Deploying
 
-### Step 1: Enable Root Shell
+### Option A: Webflasher (Recommended)
+
+Use our browser-based flasher at **[dagnazty.github.io/DagShell/orbic.html](https://dagnazty.github.io/DagShell/orbic.html)**
+
+1. Generate PKI certificates in-browser
+2. Download firmware files
+3. Run `enable_shell.py` with your admin password
+4. Run `deploy_base64.py` to install
+
+### Option B: Manual Build & Deploy
+
+#### Step 1: Enable Root Shell
 
 ```powershell
 python enable_shell.py YOUR_ADMIN_PASSWORD
@@ -94,7 +121,7 @@ python enable_shell.py YOUR_ADMIN_PASSWORD
 
 This exploits the Orbic web API to open a shell on port 24.
 
-### Step 2: Deploy Firmware
+#### Step 2: Deploy Firmware
 
 ```powershell
 python deploy_base64.py

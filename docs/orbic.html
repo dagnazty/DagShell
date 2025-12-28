@@ -394,6 +394,55 @@
             </div>
         </div>
 
+        <!-- Step 5: Pi Companion (Optional) -->
+        <div class="flasher-step" id="step5">
+            <span class="step-number">5</span>
+            <h3 class="step-title">Pi Companion Setup (Optional)</h3>
+            <div class="step-content">
+                <p>For enhanced wardriving with dedicated GPS, Bluetooth, and WiFi scanning, set up a Raspberry Pi
+                    companion device.</p>
+
+                <h4 style="color:var(--cyan);margin:15px 0 10px;">🥧 Hardware Needed</h4>
+                <ul>
+                    <li><strong>Raspberry Pi 3B+</strong> or newer (Zero lacks USB power)</li>
+                    <li><strong>U-Blox7 GPS</strong> - USB GPS dongle</li>
+                    <li><strong>Bluetooth adapter</strong> - Built-in or USB</li>
+                    <li><strong>WiFi adapter</strong> - External USB (AC600)</li>
+                </ul>
+
+                <h4 style="color:var(--cyan);margin:15px 0 10px;">📥 Download Pi Companion</h4>
+                <div class="download-grid">
+                    <div class="download-item">
+                        <div class="icon">🐍</div>
+                        <strong>dagshell_companion.py</strong>
+                        <p style="font-size:12px;color:var(--text-muted);">Main Pi scanner script</p>
+                        <a href="https://github.com/dagnazty/DagShell/raw/main/pi_companion/dagshell_companion.py"
+                            class="btn-action" download>Download</a>
+                    </div>
+                    <div class="download-item">
+                        <div class="icon">📜</div>
+                        <strong>setup.sh</strong>
+                        <p style="font-size:12px;color:var(--text-muted);">Pi dependency installer</p>
+                        <a href="https://github.com/dagnazty/DagShell/raw/main/pi_companion/setup.sh" class="btn-action"
+                            download>Download</a>
+                    </div>
+                </div>
+
+                <h4 style="color:var(--cyan);margin:15px 0 10px;">🚀 Quick Start</h4>
+                <div class="command-box">
+                    <code># On Raspberry Pi:
+chmod +x setup.sh && ./setup.sh
+sudo python3 dagshell_companion.py</code>
+                    <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                </div>
+
+                <div class="alert alert-info">
+                    💡 <strong>Features:</strong> Pi provides GPS coordinates, scans Bluetooth/WiFi, and can be
+                    controlled remotely from the Orbic web UI.
+                </div>
+            </div>
+        </div>
+
         <!-- Footer -->
         <footer class="footer">
             <p>DagShell &copy; 2025 | Created by <a href="https://github.com/dagnazty" target="_blank">dag</a></p>
@@ -407,4 +456,3 @@
 </body>
 
 </html>
-</code>

@@ -1,0 +1,17 @@
+[Unit]
+Description=DagShell Pi Companion Scanner
+After=network.target gpsd.service bluetooth.target
+Wants=gpsd.service bluetooth.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/bin/python3 /opt/dagshell/dagshell_companion.py
+WorkingDirectory=/opt/dagshell
+Restart=always
+RestartSec=5
+User=root
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

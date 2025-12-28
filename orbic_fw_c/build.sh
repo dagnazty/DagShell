@@ -9,6 +9,8 @@ LOCAL_GCC="$SCRIPT_DIR/../gcc_mac/bin/arm-cortex_a8-linux-gnueabi-gcc"
 CC=""
 if [ -f "$LOCAL_GCC" ]; then
     CC="$LOCAL_GCC"
+    # Add toolchain bin to PATH so GCC can find cc1 in libexec
+    export PATH="$SCRIPT_DIR/../gcc_mac/bin:$PATH"
     echo "Found local kernel 3.2 toolchain: $CC"
 else
     # Fallback to system PATH - try armv7 first (glibc 2.17), then others
@@ -65,7 +67,7 @@ fi
 
 # --- 3. Build Firmware ---
 echo "Building orbic_app..."
-$CC main.c gps.c wifi.c wigle.c clients.c -o orbic_app -I. -L"$BEARSSL_DIR" -lbearssl -static
+$CC main.c gps.c wifi.c wigle.c clients.c nettools.c -o orbic_app -I. -L"$BEARSSL_DIR" -lbearssl -static
 
 if [ $? -eq 0 ]; then
     echo "Build Successful: orbic_app"

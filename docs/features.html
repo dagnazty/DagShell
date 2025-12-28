@@ -201,38 +201,102 @@
 
         <!-- GPS -->
         <div class="card">
-            <h2>📍 GPS Tracker</h2>
-            <p>Track your location using GPS from connected devices (phone/laptop) via browser geolocation or cell tower
-                lookup.</p>
+            <h2>📍 Pi GPS Tracker</h2>
+            <p>GPS data comes exclusively from the Raspberry Pi companion device - no browser geolocation or cell tower
+                lookups.</p>
 
-            <h3>Auto-GPS on Every Page</h3>
-            <p>A GPS indicator appears in the bottom-right corner of every page, polling every 30 seconds:</p>
+            <h3>Pi-Only GPS</h3>
+            <p>The GPS page now shows only data from the Pi companion:</p>
             <ul>
-                <li><span style="color:#0f0">📍 Green border</span> = GPS fix active</li>
-                <li><span style="color:#ff0">📍 Yellow border</span> = Looking up location...</li>
-                <li><span style="color:#f00">📍 Red border</span> = No GPS fix</li>
+                <li><span style="color:#0f0">✓ Green</span> = GPS fix active (with source and coordinates)</li>
+                <li><span style="color:#ff0">⏳ Yellow</span> = Waiting for Pi GPS...</li>
             </ul>
-
-            <h3>Cell Tower Lookup (OpenCellID)</h3>
-            <p>When browser geolocation fails or isn't available, DagShell automatically uses cell tower information to
-                get approximate coordinates:</p>
-            <ol>
-                <li>Device reads cell info from modem (MCC, MNC, LAC, CID)</li>
-                <li>Your browser calls the OpenCellID API</li>
-                <li>Coordinates are sent back to the device</li>
-            </ol>
             <div class="alert alert-info">
-                💡 <strong>Setup:</strong> Configure your OpenCellID token in Settings to enable cell tower lookup.
+                💡 <strong>Setup:</strong> Run <code>dagshell_companion.py</code> on your Pi with a GPS USB dongle.
             </div>
 
-            <h3>Browser Geolocation</h3>
-            <p>If your browser supports geolocation and you grant permission, high-accuracy GPS coordinates from your
-                phone/laptop will be used.</p>
+            <h3>Auto-Refresh</h3>
+            <p>The GPS status automatically refreshes every 5 seconds. No manual interaction needed.</p>
 
             <h3>GPS JSON API</h3>
             <p>Access GPS data programmatically via:</p>
             <pre><code>https://192.168.1.1:8443/?cmd=gps_json</code></pre>
-            <p>Returns JSON: <code>{"has_fix":1,"lat":"...","lon":"...","source":"Browser GPS","cell":{...}}</code></p>
+            <p>Returns JSON: <code>{"has_fix":1,"lat":"...","lon":"...","source":"Browser GPS"}</code></p>
+        </div>
+
+        <!-- Pi Companion -->
+        <div class="card">
+            <h2>🥧 Pi Companion</h2>
+            <p>The Raspberry Pi companion extends DagShell's wardriving capabilities with dedicated sensors.</p>
+
+            <h3>Hardware</h3>
+            <ul>
+                <li><strong>Raspberry Pi 3B+</strong> or newer (Zero lacks USB power)</li>
+                <li><strong>GPS USB Dongle</strong> - U-Blox7 recommended</li>
+                <li><strong>Bluetooth Adapter</strong> - Built-in or USB (Kinovo BTD400)</li>
+                <li><strong>WiFi Adapter</strong> - External USB for scanning (AC600)</li>
+            </ul>
+
+            <h3>Remote Control</h3>
+            <p>Control Pi scanning from the Orbic web UI:</p>
+            <ul>
+                <li><strong>▶ Start BT Scan</strong> - Begin Bluetooth scanning on Pi</li>
+                <li><strong>⏹ Stop BT Scan</strong> - Stop Bluetooth scanning</li>
+                <li><strong>Status Display</strong> - Shows scanning/idle state</li>
+            </ul>
+
+            <h3>Data Collection</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data Type</th>
+                        <th>Source</th>
+                        <th>Output File</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>WiFi Networks</td>
+                        <td>Pi wlan1 adapter</td>
+                        <td>wardrive_*.csv</td>
+                    </tr>
+                    <tr>
+                        <td>Bluetooth Devices</td>
+                        <td>Pi BT adapter</td>
+                        <td>wardrive_bt_*.csv</td>
+                    </tr>
+                    <tr>
+                        <td>GPS Coordinates</td>
+                        <td>Pi USB GPS</td>
+                        <td>(used for all logs)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Setup & Auto-Start</h3>
+            <pre><code># On Raspberry Pi:
+chmod +x setup.sh && ./setup.sh   # Installs deps + enables auto-start
+sudo systemctl start dagshell-companion  # Start now (or reboot)</code></pre>
+            <p>The setup script installs a systemd service that automatically starts the companion on boot.</p>
+            <pre><code># Service management:
+sudo systemctl status dagshell-companion  # Check status
+sudo journalctl -u dagshell-companion -f  # View logs
+sudo systemctl disable dagshell-companion # Disable auto-start</code></pre>
+            <div class="alert alert-info">
+                💡 <strong>Tip:</strong> Connect Pi to Orbic via USB gadget mode for reliable connectivity.
+            </div>
+
+            <h3>Deauth Attacks</h3>
+            <p>Launch WiFi deauth attacks from the Orbic <strong>Scan</strong> page using the Pi's external WiFi
+                adapter:</p>
+            <ul>
+                <li><strong>💀 Deauth Once</strong> - Single deauth burst on selected networks</li>
+                <li><strong>🔄 Continuous</strong> - Persistent deauth loop until stopped</li>
+                <li><strong>⏹ Stop</strong> - Stop continuous attacks</li>
+            </ul>
+            <div class="alert alert-warning">
+                ⚠️ <strong>Required:</strong> External WiFi adapter (wlan1) that supports monitor mode.
+            </div>
         </div>
 
         <!-- Wardrive -->

@@ -1,5 +1,4 @@
 # Compiled binaries
-orbic_fw_c/orbic_app
 *.exe
 *.o
 *.a
