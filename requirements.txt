@@ -6,3 +6,15 @@ requests>=2.25.0
 
 # Cryptography for PKI generation (gen_pki.py)
 cryptography>=3.4.0
+
+# USB cable deployment (deploy_usb.py) — optional.
+# Enables automatic RNDIS->ADB USB mode switching and AT+SYSCMD root ops.
+# Requires the native libusb backend in addition to this Python package:
+#   macOS:  brew install libusb
+#   Linux:  sudo apt install libusb-1.0-0
+# Also requires the `adb` CLI (Android Debug Bridge) on your PATH:
+#   macOS:  brew install android-platform-tools
+#   Linux:  sudo apt install adb
+# If pyusb/libusb are unavailable, deploy_usb.py falls back to ADB-only mode.
+pyusb>=1.2.0
+

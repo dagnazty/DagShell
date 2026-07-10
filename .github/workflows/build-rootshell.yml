@@ -1,0 +1,62 @@
+name: Build rootshell
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Cross-compile rootshell (ARM)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ARM cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils-arm-linux-gnueabi
+
+      - name: Build rootshell from assembly
+        working-directory: orbic_fw_c
+        run: |
+          # Assemble — target ARMv7 (Cortex-A8), EABI5
+          arm-linux-gnueabi-as -meabi=5 -o rootshell.o rootshell.S
+          # Link — static, no libc
+          arm-linux-gnueabi-ld -o rootshell rootshell.o
+          # Strip — minimize binary size
+          arm-linux-gnueabi-strip rootshell
+          # Verify
+          file rootshell
+          ls -la rootshell
+
+      - name: Verify ELF properties
+        working-directory: orbic_fw_c
+        run: |
+          echo "=== File type ==="
+          file rootshell
+          echo ""
+          echo "=== ELF headers ==="
+          arm-linux-gnueabi-readelf -h rootshell
+          echo ""
+          echo "=== Size ==="
+          ls -la rootshell
+          echo ""
+          # Ensure it's a static ARM ELF
+          file rootshell | grep -q "ARM" || { echo "ERROR: not an ARM binary"; exit 1; }
+          file rootshell | grep -q "statically linked" || { echo "ERROR: not statically linked"; exit 1; }
+          echo "✓ rootshell is a valid static ARM ELF"
+
+      - name: Upload rootshell artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rootshell-arm
+          path: orbic_fw_c/rootshell
+
+      - name: Attach rootshell to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: orbic_fw_c/rootshell

@@ -10,9 +10,10 @@ echo "=== BOOT $(date) ===" > $BOOTLOG
 busybox nc -ll -p 24 -e /bin/sh &
 echo "[OK] Shell on port 24" >> $BOOTLOG
 
-# 2. Open HTTPS port (Port 8443)
+# 2. Open HTTP and HTTPS ports (8080 and 8443)
 iptables -I INPUT -p tcp --dport 8443 -j ACCEPT
-echo "[OK] Port 8443 open" >> $BOOTLOG
+iptables -I INPUT -p tcp --dport 8080 -j ACCEPT
+echo "[OK] Ports 8080 and 8443 open" >> $BOOTLOG
 
 # 3. Configure DNS forwarding for dnsmasq
 # CRITICAL: dnsmasq uses --dhcp-option-force=6,192.168.1.1 which makes
@@ -71,8 +72,10 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 # 7. Start DagShell
+# NOTE: </dev/null keeps fd 0 open. Without it, socket() can return fd 0,
+# which triggers the server_fd==0 exit check bug in the binary.
 sleep 5
-/data/orbic_app &
+/data/orbic_app </dev/null &
 echo "" >> $BOOTLOG
 echo "[OK] orbic_app started PID=$!" >> $BOOTLOG
 echo "=== BOOT COMPLETE ===" >> $BOOTLOG

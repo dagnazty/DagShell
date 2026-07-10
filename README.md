@@ -79,7 +79,17 @@ A terminal-styled custom firmware for the **Orbic RCL400** hotspot with hacking 
 - Orbic RCL400 hotspot
 - **Windows:** ARM cross-compiler (included in `gcc_win/` folder)
 - **macOS:** Custom ARM toolchain (included in `gcc_mac/` folder, built with crosstool-ng targeting kernel 3.2 for compatibility)
-- Python 3 with `requests` and `cryptography` modules
+- Python 3 with `requests` and `cryptography` modules (`pip install -r requirements.txt`)
+- **USB cable deploy (`deploy_usb.py`) — optional:**
+  - `pyusb` Python package (`pip install pyusb`) + native **libusb** backend
+    - macOS: `brew install libusb`
+    - Linux: `sudo apt install libusb-1.0-0`
+  - `adb` (Android Debug Bridge) CLI on your PATH
+    - macOS: `brew install android-platform-tools`
+    - Linux: `sudo apt install adb`
+    - Windows: [platform-tools](https://developer.android.com/tools/releases/platform-tools)
+  - If `pyusb`/`libusb` are missing, `deploy_usb.py` automatically falls back to ADB-only mode.
+
 
 ## Building
 
@@ -134,6 +144,32 @@ This uploads and installs:
 - Boot Persistence Script
 
 The firmware auto-starts on reboot (port 8443).
+
+### Option C: USB Cable Deploy (no WiFi / no password)
+
+Deploy entirely over a USB cable — no WiFi connection and no admin password
+required. Mirrors Rayhunter's `orbic-usb` installer method.
+
+```bash
+# Install dependencies (see Requirements above)
+pip install -r requirements.txt        # includes pyusb
+brew install libusb                    # macOS native backend (Linux: apt install libusb-1.0-0)
+brew install android-platform-tools    # adb CLI
+
+# Generate certs (first time only) and deploy
+cd orbic_fw_c && python3 gen_pki.py && cd ..
+python3 deploy_usb.py
+
+# Verify an existing install without redeploying
+python3 deploy_usb.py --verify-only
+```
+
+`deploy_usb.py` switches the device from RNDIS to ADB mode over USB, pushes the
+firmware/certs, configures the firewall, installs boot persistence, and starts
+`orbic_app`. If `pyusb`/`libusb` are unavailable it falls back to ADB-only mode
+(requires the device to already be in ADB mode). See
+[`docs/deploy_usb_feature.md`](docs/deploy_usb_feature.md) for full details.
+
 
 ## Accessing
 

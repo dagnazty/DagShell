@@ -42,8 +42,8 @@ root_cert = (
     .issuer_name(root_subject) # Self-signed
     .public_key(root_key.public_key())
     .serial_number(x509.random_serial_number())
-    .not_valid_before(datetime.datetime.utcnow())
-    .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=3650))
+    .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
+    .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3650))
     .add_extension(
         x509.BasicConstraints(ca=True, path_length=None), critical=True,
     )
@@ -74,8 +74,8 @@ server_cert = (
     .issuer_name(root_subject) # Signed by Root
     .public_key(server_key.public_key())
     .serial_number(x509.random_serial_number())
-    .not_valid_before(datetime.datetime.utcnow())
-    .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=365))
+    .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
+    .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3650))
     .add_extension(
         x509.BasicConstraints(ca=False, path_length=None), critical=True,
     )
